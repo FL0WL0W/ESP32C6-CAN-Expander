@@ -23,8 +23,8 @@
 #include "lwip/sys.h"
 #include <lwip/netdb.h>
 
-#define UPDI1_UART_RX_PIN 15
-#define UPDI1_UART_TX_PIN 14
+#define UPDI_UART_RX_PIN 15
+#define UPDI_UART_TX_PIN 14
 
 void wifi_init_softap()
 {
@@ -53,17 +53,17 @@ void wifi_init_softap()
     ESP_ERROR_CHECK(esp_wifi_start());
 }
 
-void UPDI1_Enable(void *arg) {
+void UPDI_Enable(void *arg) {
     vTaskDelay(pdMS_TO_TICKS(100));
-    UPDI_Enable(1, UPDI1_UART_TX_PIN, UPDI1_UART_RX_PIN);
+    UPDI_Enable(1, UPDI_UART_TX_PIN, UPDI_UART_RX_PIN);
     vTaskDelete(NULL);
 }
 
 uint8_t updi_enabled = 0;
-bool UPDI1_RX_Hook(const uint8_t *data, size_t len)
+bool UPDI_RX_Hook(const uint8_t *data, size_t len)
 {
     if(updi_enabled != 1) {
-        xTaskCreate(UPDI1_Enable, "UPDI1_Enable", 4096, 0, 5, NULL);
+        xTaskCreate(UPDI_Enable, "UPDI_Enable", 4096, 0, 5, NULL);
     }
     updi_enabled = 1;
     return true;
@@ -107,18 +107,18 @@ void app_main()
         .source_clk = UART_SCLK_DEFAULT,
     };
 
-    sock_uart_config_t UPDI1_sock_uart_config = 
+    sock_uart_config_t UPDI_sock_uart_config = 
     {
         .port = 8001,
         .sock_rx_buffer_size = 1440,
         .uart_num = 1,
         .uart_config = &UPDI_uart_config,
-        .rx_pin = UPDI1_UART_RX_PIN,
-        .tx_pin = UPDI1_UART_TX_PIN,
-        .sock_rx_hook = UPDI1_RX_Hook
+        .rx_pin = UPDI_UART_RX_PIN,
+        .tx_pin = UPDI_UART_TX_PIN,
+        .sock_rx_hook = UPDI_RX_Hook
     };
 
-    xTaskCreate(sock_uart, "UPDI1_sock_uart", 4096, &UPDI1_sock_uart_config, 5, NULL);
+    xTaskCreate(sock_uart, "UPDI_sock_uart", 4096, &UPDI_sock_uart_config, 5, NULL);
 
     // //install can listen service
     // twai_general_config_t twai_general_config = {

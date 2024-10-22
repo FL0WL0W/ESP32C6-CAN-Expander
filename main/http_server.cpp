@@ -15,8 +15,8 @@
 #include "esp_spiffs.h"
 #include "esp_http_server.h"
 
-#define UPDI1_UART_RX_PIN (gpio_num_t)15
-#define UPDI1_UART_TX_PIN (gpio_num_t)14
+#define UPDI_UART_RX_PIN (gpio_num_t)15
+#define UPDI_UART_TX_PIN (gpio_num_t)14
 
 /* Max length a file path can have on storage */
 #define FILE_PATH_MAX (ESP_VFS_PATH_MAX + CONFIG_SPIFFS_OBJ_NAME_LEN)
@@ -167,8 +167,8 @@ int64_t get_timestamp() {
 /* Handler to upload flash to ATTiny */
 static esp_err_t upload_attiny_post_handler(httpd_req_t *req)
 {
-    gpio_num_t tx_pin = UPDI1_UART_TX_PIN;
-    gpio_num_t rx_pin = UPDI1_UART_RX_PIN;
+    gpio_num_t tx_pin = UPDI_UART_TX_PIN;
+    gpio_num_t rx_pin = UPDI_UART_RX_PIN;
 
     ESP_LOGI(TAG, "Receiving Attiny Flash");
 
