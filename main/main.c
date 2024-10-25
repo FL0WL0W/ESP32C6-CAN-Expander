@@ -8,7 +8,6 @@
 #include "driver/gpio.h"
 #include "sdkconfig.h"
 #include "esp_log.h"
-#include "driver/usb_serial_jtag.h"
 #include "hal/gpio_hal.h"
 #include "uart_listen.h"
 #include "can_listen.h"
@@ -53,7 +52,7 @@ void wifi_init_softap()
     ESP_ERROR_CHECK(esp_wifi_start());
 }
 
-void UPDI_Enable(void *arg) {
+void UPDI_Enable_Task(void *arg) {
     vTaskDelay(pdMS_TO_TICKS(100));
     UPDI_Enable(1, UPDI_UART_TX_PIN, UPDI_UART_RX_PIN);
     vTaskDelete(NULL);
@@ -63,7 +62,7 @@ uint8_t updi_enabled = 0;
 bool UPDI_RX_Hook(const uint8_t *data, size_t len)
 {
     if(updi_enabled != 1) {
-        xTaskCreate(UPDI_Enable, "UPDI_Enable", 4096, 0, 5, NULL);
+        xTaskCreate(UPDI_Enable_Task, "UPDI_Enable", 4096, 0, 5, NULL);
     }
     updi_enabled = 1;
     return true;
