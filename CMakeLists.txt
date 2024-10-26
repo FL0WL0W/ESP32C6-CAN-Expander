@@ -4,6 +4,6 @@
 # CMakeLists in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.16)
 
-set(COMPONENTS esptool_py main EFIGenie EmbeddedIOServices)
+set(COMPONENTS esptool_py main EFIGenie)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(main)
