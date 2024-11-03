@@ -6,6 +6,7 @@
 #include "freertos/task.h"
 #include "driver/uart.h"
 #include "driver/gpio.h"
+#include "driver/spi_master.h"
 #include "sdkconfig.h"
 #include "esp_log.h"
 #include "hal/gpio_hal.h"
@@ -23,6 +24,8 @@
 #include <lwip/netdb.h>
 
 #include "EmbeddedIOServiceCollection.h"
+#include "ATTiny427ExpanderUpdateService.h"
+#include "AnalogService_ATTiny427Expander.h"
 #include "Esp32IdfDigitalService.h"
 #include "Esp32IdfTimerService.h"
 #include "Esp32IdfAnalogService.h"
@@ -36,6 +39,11 @@
 
 #define UPDI_UART_RX_PIN 15
 #define UPDI_UART_TX_PIN 14
+
+#define ATTINY_MISO 1
+#define ATTINY_MOSI 2
+#define ATTINY_CLK  3
+#define ATTINY_CS   4
 
 using namespace OperationArchitecture;
 using namespace EmbeddedIOServices;
@@ -88,13 +96,31 @@ extern "C"
         return true;
     }
 
-    char *_config = 0;
+    void *_config = 0;
     GeneratorMap<Variable> *_variableMap;
     EmbeddedIOServiceCollection _embeddedIOServiceCollection;
     CommunicationHandler_EFIGenie *_efiGenieHandler;
     EFIGenieMain *_engineMain;
     Variable *loopTime;
     uint32_t prev;
+
+    bool loadConfig()
+    {
+        const char * configPath = "/SPIFFS/Config.bin";
+        FILE *fd = NULL;
+        struct stat file_stat;
+
+        if(stat(configPath, &file_stat) == -1)
+            return false;
+        fd = fopen(configPath, "r");
+        if(!fd)
+            return false;
+        free(_config);
+        _config = malloc(file_stat.st_size);
+        fread(_config, 1, file_stat.st_size, fd);
+        fclose(fd);
+        return true;
+    }
 
     bool enginemain_write(void *destination, const void *data, size_t length) {
         if(reinterpret_cast<size_t>(destination) >= 0x20000000 && reinterpret_cast<size_t>(destination) <= 0x2000FA00)
@@ -121,6 +147,9 @@ extern "C"
     bool enginemain_start() {
         if(_engineMain == 0)
         {
+            if(!loadConfig())
+                return false;
+
             size_t configSize = 0;
             _engineMain = new EFIGenieMain(&_config, configSize, &_embeddedIOServiceCollection, _variableMap);
 
@@ -129,13 +158,16 @@ extern "C"
         return true;
     }
 
+    ATTiny427Expander_Registers _attinyRegisters;
+    ATTiny427ExpanderUpdateService *_attinyUpdateService;
+
     void Setup() 
     {
+        if(!loadConfig())
+            return;
         if(_config == 0)
             return;
         _variableMap = new GeneratorMap<Variable>();
-        // _cdcService = new STM32HalCommunicationService_CDC();
-        // _cdcService->RegisterHandler();
 
         if(_embeddedIOServiceCollection.DigitalService == 0)
             _embeddedIOServiceCollection.DigitalService = new Esp32IdfDigitalService();
@@ -143,6 +175,7 @@ extern "C"
             _embeddedIOServiceCollection.AnalogService = new Esp32IdfAnalogService();
         if(_embeddedIOServiceCollection.TimerService == 0)
             _embeddedIOServiceCollection.TimerService = new Esp32IdfTimerService();
+        
         // if(_embeddedIOServiceCollection.PwmService == 0)
         //     _embeddedIOServiceCollection.PwmService = new Esp32IdfPwmService();
 
@@ -165,6 +198,9 @@ extern "C"
             _engineMain->Loop();
         }
     }
+
+    uint8_t inBuffer[1024];
+    uint8_t outBuffer[1024];
 
     void app_main()
     {
@@ -264,9 +300,45 @@ extern "C"
         mount_spiffs("/SPIFFS");
         start_http_server("/SPIFFS");
 
+        AnalogService_ATTiny427Expander *analogService = new AnalogService_ATTiny427Expander(&_attinyRegisters);
+
+
+        spi_transaction_t t;
+        t.rx_buffer = &inBuffer;
+        t.tx_buffer = &outBuffer;
+        memset(&t, 0, sizeof(t));
+
+        spi_device_handle_t spi;
+        spi_bus_config_t buscfg = {
+            .mosi_io_num = ATTINY_MOSI,
+            .miso_io_num = ATTINY_MISO,
+            .sclk_io_num = ATTINY_CLK,
+            .quadwp_io_num = -1,
+            .quadhd_io_num = -1,
+            .max_transfer_sz = 1024
+        };
+        spi_device_interface_config_t devcfg = {
+            .mode = 0,                  //SPI mode 0
+            .clock_speed_hz = 2500000,  //Clock out at 2.5 MHz
+            .spics_io_num = ATTINY_CS,  //CS pin
+            .queue_size = 7,            //We want to be able to queue 7 transactions at a time
+        };
+        //Initialize the SPI bus
+        ret = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO);
+        ESP_ERROR_CHECK(ret);
+        //Attach the LCD to the SPI bus
+        ret = spi_bus_add_device(SPI2_HOST, &devcfg, &spi);
+        ESP_ERROR_CHECK(ret);
+
+        _attinyUpdateService = new ATTiny427ExpanderUpdateService(&_attinyRegisters);
+
         Setup();
         while (1)
         {
+            t.length = _attinyUpdateService->Transmit(outBuffer);
+            if(spi_device_polling_transmit(spi, &t) == ESP_OK)
+                _attinyUpdateService->Receive(inBuffer, t.length);
+
             Loop();
             vTaskDelay(1);
         }

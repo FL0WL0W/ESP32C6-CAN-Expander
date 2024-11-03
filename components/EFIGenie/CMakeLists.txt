@@ -1,5 +1,15 @@
 idf_component_register()
 
+execute_process(
+    COMMAND ping www.github.com -n 2 -w 1000
+    RESULT_VARIABLE NO_CONNECTION
+)
+if(NO_CONNECTION GREATER 0)
+    set(UPDATE_DISCONNECTED 1)
+else()
+    set(UPDATE_DISCONNECTED 0)
+endif()
+
 include(ExternalProject)
 
 set(EFIGENIE_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/efigenie_install)
@@ -15,6 +25,8 @@ externalproject_add(efigenie_proj
     USES_TERMINAL_DOWNLOAD TRUE
     USES_TERMINAL_CONFIGURE TRUE
     USES_TERMINAL_BUILD TRUE
+
+    UPDATE_DISCONNECTED ${UPDATE_DISCONNECTED}
 
     INSTALL_DIR ${EFIGENIE_INSTALL_DIR}
     BUILD_BYPRODUCTS "${EFIGENIE_INSTALL_DIR}/lib/libOperationArchitecture.a"
