@@ -34,16 +34,8 @@ namespace EmbeddedIOServices
 			uint16_t AnalogEnable = 0;
 			struct
 			{
-				union
-				{
-					uint8_t GPIOR0;
-					uint8_t AnalogEnable0;
-				};
-				union
-				{
-					uint8_t GPIOR1;
-					uint8_t AnalogEnable1;
-				};
+				uint8_t GPIOR0;
+				uint8_t GPIOR1;
 			};
 		};
 		union

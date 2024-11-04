@@ -1,7 +1,7 @@
 idf_component_register()
 
 execute_process(
-    COMMAND ping www.github.com -n 2 -w 1000
+    COMMAND ping www.github.com -w 2
     RESULT_VARIABLE NO_CONNECTION
 )
 if(NO_CONNECTION GREATER 0)

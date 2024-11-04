@@ -94,7 +94,7 @@ namespace EmbeddedIOServices
 		{
 			case 2:
 				//EVOUTA
-				if(_registers->Comm == SPI)
+				if(_registers->Comm == SPI || _registers->Comm == UART0Alternate || _registers->Comm == UART1)
 					return false;
 				//TODO EVSYS
 				return false;
@@ -182,7 +182,7 @@ namespace EmbeddedIOServices
 				return true;
 			}
 			case 7:
-				if(_registers->Comm == SPIAlternate)
+				if(_registers->Comm == SPIAlternate || _registers->Comm == UART1Alternate)
 				{
 					//LUT1
 					if(_registers->PORTMUX_CCLROUTEA & 0x2 && _registers->CCL_LUT1CTRLA != 0)
@@ -312,7 +312,7 @@ namespace EmbeddedIOServices
 				return false;
 			case 17:
 				//LUT1'
-				if(_registers->Comm == SPIAlternate)
+				if(_registers->Comm == SPIAlternate || _registers->Comm == UART1Alternate)
 					return false;
 				_registers->PORTMUX_CCLROUTEA |= 0x2;
 				_registers->CCL_LUT1TRUTH = 0xFE;
@@ -340,7 +340,7 @@ namespace EmbeddedIOServices
 				_registers->CCL_LUT1CTRLA = 0x41;
 				return true;
 			case 18:
-				if(_registers->Comm == SPIAlternate)
+				if(_registers->Comm == SPIAlternate || _registers->Comm == UART1Alternate)
 					return false;
 				//EVOUTC
 				//TODO EVSYS
@@ -382,7 +382,7 @@ namespace EmbeddedIOServices
 		switch(pinOut)
 		{
 			case 2:
-				if(_registers->Comm == SPI)
+				if(_registers->Comm == SPI || _registers->Comm == UART0Alternate || _registers->Comm == UART1)
 					return;
 				//EVOUTA
 				_registers->EVSYS_EVOUTA = 0;
@@ -405,7 +405,7 @@ namespace EmbeddedIOServices
 				_registers->EVSYS_CCL_LUT3A = 0;
 				return;
 			case 7:
-				if(_registers->Comm == SPIAlternate)
+				if(_registers->Comm == SPIAlternate || _registers->Comm == UART1Alternate)
 				{
 					//LUT1
 					_registers->CCL_LUT1CTRLA = 0;
@@ -449,14 +449,14 @@ namespace EmbeddedIOServices
 				_registers->EVSYS_EVOUTB = 0;
 				return;
 			case 17:
-				if(_registers->Comm == SPIAlternate)
+				if(_registers->Comm == SPIAlternate || _registers->Comm == UART1Alternate)
 					return;
 				//LUT1'
 				_registers->CCL_LUT1CTRLA = 0;
 				_registers->EVSYS_CCL_LUT1A = 0;
 				return;
 			case 18:
-				if(_registers->Comm == SPIAlternate)
+				if(_registers->Comm == SPIAlternate || _registers->Comm == UART1Alternate)
 					return;
 				//EVOUTC
 				_registers->EVSYS_EVOUTC = 0;

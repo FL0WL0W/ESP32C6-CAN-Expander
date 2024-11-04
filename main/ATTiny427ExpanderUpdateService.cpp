@@ -189,31 +189,28 @@ namespace EmbeddedIOServices
             case UART1:
                 transmitRegisters.PORTA_DIR &= 0b11111000;
                 transmitRegisters.PORTA_DIR |= 0b00000010;
-                transmitRegisters.AnalogEnable0 &= 0xF8;
+                transmitRegisters.AnalogEnable &= 0xFFF8;
                 break;
             case UART1Alternate:
                 transmitRegisters.PORTC_DIR &= 0b11110011;
                 transmitRegisters.PORTC_DIR |= 0b00000100;
-                transmitRegisters.AnalogEnable1 &= 0xCF;
+                transmitRegisters.AnalogEnable &= 0xFFCF;
                 break;
             case SPI:
                 transmitRegisters.PORTA_DIR &= 0b11100000;
                 transmitRegisters.PORTA_DIR |= 0b00000100;
-                transmitRegisters.AnalogEnable0 &= 0xE0;
+                transmitRegisters.AnalogEnable &= 0xFFE0;
                 break;
             case SPIAlternate:
                 transmitRegisters.PORTC_DIR &= 0b11110000;
                 transmitRegisters.PORTC_DIR |= 0b00000010;
-                transmitRegisters.AnalogEnable1 &= 0x0F;
-                transmitRegisters.AnalogEnable0 &= 0xFE;
+                transmitRegisters.AnalogEnable &= 0x0FFE;
                 break;
         }
 
-        const uint16_t analogRead = (_previousRegisters.AnalogEnable1 << 8) | _previousRegisters.AnalogEnable0;
-        const uint16_t analogEnable = (transmitRegisters.AnalogEnable1 << 8) | transmitRegisters.AnalogEnable0;
-        const bool resetAccumulate = transmitRegisters.AnalogAccumulate != _previousRegisters.AnalogAccumulate || transmitRegisters.AnalogEnable1 != _previousRegisters.AnalogEnable1 || transmitRegisters.AnalogEnable0 != _previousRegisters.AnalogEnable0 || _first;
-        const bool analogStop = analogEnable == 0 && (_analogRunning || _first);
-        const bool analogStart = analogEnable != 0 && (!_analogRunning || _first);
+        const bool resetAccumulate = transmitRegisters.AnalogAccumulate != _previousRegisters.AnalogAccumulate || transmitRegisters.AnalogEnable != _previousRegisters.AnalogEnable || _first;
+        const bool analogStop = transmitRegisters.AnalogEnable == 0 && (_analogRunning || _first);
+        const bool analogStart = transmitRegisters.AnalogEnable != 0 && (!_analogRunning || _first);
         const bool GPIOR0_changed = transmitRegisters.GPIOR0 != _previousRegisters.GPIOR0 || _first;
         const bool GPIOR1_changed = transmitRegisters.GPIOR1 != _previousRegisters.GPIOR1 || _first;
         const bool GPIOR2_changed = transmitRegisters.GPIOR2 != _previousRegisters.GPIOR2 || _first;
@@ -345,39 +342,39 @@ namespace EmbeddedIOServices
             {
                 case 0:
                     writeGPIOR = true;
-                    if(analogRead != 0 && _analogRunning)
+                    if(_previousRegisters.AnalogEnable != 0 && _analogRunning)
                     {
                         //count number of analog channels
                         uint8_t analogChannelCount = 0;
-                        if(analogRead & 0b0000000000000010)
+                        if(_previousRegisters.AnalogEnable & 0b0000000000000010)
                             analogChannelCount++;
-                        if(analogRead & 0b0000000000000100)
+                        if(_previousRegisters.AnalogEnable & 0b0000000000000100)
                             analogChannelCount++;
-                        if(analogRead & 0b0000000000001000)
+                        if(_previousRegisters.AnalogEnable & 0b0000000000001000)
                             analogChannelCount++;
-                        if(analogRead & 0b0000000000010000)
+                        if(_previousRegisters.AnalogEnable & 0b0000000000010000)
                             analogChannelCount++;
-                        if(analogRead & 0b0001000000000000)
+                        if(_previousRegisters.AnalogEnable & 0b0001000000000000)
                             analogChannelCount++;
-                        if(analogRead & 0b0010000000000000)
+                        if(_previousRegisters.AnalogEnable & 0b0010000000000000)
                             analogChannelCount++;
-                        if(analogRead & 0b0100000000000000)
+                        if(_previousRegisters.AnalogEnable & 0b0100000000000000)
                             analogChannelCount++;
-                        if(analogRead & 0b1000000000000000)
+                        if(_previousRegisters.AnalogEnable & 0b1000000000000000)
                             analogChannelCount++;
-                        if(analogRead & 0b0000000000100000)
+                        if(_previousRegisters.AnalogEnable & 0b0000000000100000)
                             analogChannelCount++;
-                        if(analogRead & 0b0000000001000000)
+                        if(_previousRegisters.AnalogEnable & 0b0000000001000000)
                             analogChannelCount++;
-                        if(analogRead & 0b0000000010000000)
+                        if(_previousRegisters.AnalogEnable & 0b0000000010000000)
                             analogChannelCount++;
-                        if(analogRead & 0b0000000100000000)
+                        if(_previousRegisters.AnalogEnable & 0b0000000100000000)
                             analogChannelCount++;
-                        if(analogRead & 0b0000001000000000)
+                        if(_previousRegisters.AnalogEnable & 0b0000001000000000)
                             analogChannelCount++;
-                        if(analogRead & 0b0000010000000000)
+                        if(_previousRegisters.AnalogEnable & 0b0000010000000000)
                             analogChannelCount++;
-                        if(analogRead & 0b0000100000000000)
+                        if(_previousRegisters.AnalogEnable & 0b0000100000000000)
                             analogChannelCount++;
 
                         //read AnalogEnable register 

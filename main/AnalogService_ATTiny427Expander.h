@@ -8,14 +8,6 @@ namespace EmbeddedIOServices
 {
 	typedef uint8_t AnalogChannel_ATTiny427Expander;
 	
-	struct AnalogService_ATTiny427Expander_Registers 
-	{
-		uint8_t AnalogEnable0 = 0;
-		uint8_t AnalogEnable1 = 0;
-		uint8_t AnalogAccumulate = 0;
-		uint8_t Counter = 0;
-	};
-	
 	class AnalogService_ATTiny427Expander : public IAnalogService
 	{
 	protected:
