@@ -15,7 +15,7 @@ void sock_uart_read(void *arg)
     sock_uart_read_config_t *config = (sock_uart_read_config_t *)arg;
 
     ESP_ERROR_CHECK(uart_param_config(config->sock_uart_config->uart_num, config->sock_uart_config->uart_config));
-    ESP_ERROR_CHECK(uart_set_pin(config->sock_uart_config->uart_num, config->sock_uart_config->rx_pin, config->sock_uart_config->tx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
+    ESP_ERROR_CHECK(uart_set_pin(config->sock_uart_config->uart_num, config->sock_uart_config->tx_pin, config->sock_uart_config->rx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
 
     auto uart_callback_iterator = uart_listen_add_callback(config->sock_uart_config->uart_num, [&](const uint8_t *rx_buffer, size_t len) {
         send(config->sock, rx_buffer, len, 0);
@@ -93,7 +93,7 @@ extern "C" {
 
         while(!uart_is_driver_installed(config->uart_num)) vTaskDelay(pdMS_TO_TICKS(100));//wait for uart driver to be installed by uart_listen
         ESP_ERROR_CHECK(uart_param_config(config->uart_num, config->uart_config));
-        ESP_ERROR_CHECK(uart_set_pin(config->uart_num, config->rx_pin, config->tx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
+        ESP_ERROR_CHECK(uart_set_pin(config->uart_num, config->tx_pin, config->rx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
 
         while (1) 
         {

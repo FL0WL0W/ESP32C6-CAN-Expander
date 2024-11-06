@@ -40,10 +40,10 @@
 #define UPDI_UART_RX_PIN 15
 #define UPDI_UART_TX_PIN 14
 
-#define ATTINY_MISO 1
-#define ATTINY_MOSI 2
-#define ATTINY_CLK  3
-#define ATTINY_CS   4
+#define ATTINY_MISO 23
+#define ATTINY_MOSI 7
+#define ATTINY_CLK  6
+#define ATTINY_CS   22
 
 using namespace OperationArchitecture;
 using namespace EmbeddedIOServices;
@@ -158,7 +158,7 @@ extern "C"
         return true;
     }
 
-    ATTiny427Expander_Registers _attinyRegisters;
+    ATTiny427Expander_Registers _attinyRegisters(SPI);
     ATTiny427ExpanderUpdateService *_attinyUpdateService;
 
     void Setup() 
@@ -199,8 +199,8 @@ extern "C"
         }
     }
 
-    uint8_t inBuffer[1024];
-    uint8_t outBuffer[1024];
+    DMA_ATTR uint8_t inBuffer[1024];
+    DMA_ATTR uint8_t outBuffer[1024];
 
     void app_main()
     {
@@ -231,27 +231,27 @@ extern "C"
             xTaskCreate(uart_listen, uart_listen_name[i], 4096, &uart_listen_config[i], 10, NULL);
         }
 
-        uart_config_t UPDI_uart_config = {
-            .baud_rate = 100000,
-            .data_bits = UART_DATA_8_BITS,
-            .parity    = UART_PARITY_EVEN,
-            .stop_bits = UART_STOP_BITS_2, 
-            .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-            .source_clk = UART_SCLK_DEFAULT,
-        };
+        // uart_config_t UPDI_uart_config = {
+        //     .baud_rate = 100000,
+        //     .data_bits = UART_DATA_8_BITS,
+        //     .parity    = UART_PARITY_EVEN,
+        //     .stop_bits = UART_STOP_BITS_2, 
+        //     .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        //     .source_clk = UART_SCLK_DEFAULT,
+        // };
 
-        sock_uart_config_t UPDI_sock_uart_config = 
-        {
-            .port = 8001,
-            .sock_rx_buffer_size = 1440,
-            .uart_num = (uart_port_t)1,
-            .uart_config = &UPDI_uart_config,
-            .tx_pin = (gpio_num_t)UPDI_UART_TX_PIN,
-            .rx_pin = (gpio_num_t)UPDI_UART_RX_PIN,
-            .sock_rx_hook = UPDI_RX_Hook
-        };
+        // sock_uart_config_t UPDI_sock_uart_config = 
+        // {
+        //     .port = 8001,
+        //     .sock_rx_buffer_size = 1440,
+        //     .uart_num = (uart_port_t)1,
+        //     .uart_config = &UPDI_uart_config,
+        //     .tx_pin = (gpio_num_t)UPDI_UART_TX_PIN,
+        //     .rx_pin = (gpio_num_t)UPDI_UART_RX_PIN,
+        //     .sock_rx_hook = UPDI_RX_Hook
+        // };
 
-        xTaskCreate(sock_uart, "UPDI_sock_uart", 4096, &UPDI_sock_uart_config, 5, NULL);
+        // xTaskCreate(sock_uart, "UPDI_sock_uart", 4096, &UPDI_sock_uart_config, 5, NULL);
 
         // //install can listen service
         // twai_general_config_t twai_general_config = {
@@ -296,17 +296,11 @@ extern "C"
         
         // xTaskCreate(echo_task, "echo_task", 2048, NULL, 10, NULL);
 
-        mount_sd("/SD");
+        // mount_sd("/SD");
         mount_spiffs("/SPIFFS");
         start_http_server("/SPIFFS");
 
         AnalogService_ATTiny427Expander *analogService = new AnalogService_ATTiny427Expander(&_attinyRegisters);
-
-
-        spi_transaction_t t;
-        t.rx_buffer = &inBuffer;
-        t.tx_buffer = &outBuffer;
-        memset(&t, 0, sizeof(t));
 
         spi_device_handle_t spi;
         spi_bus_config_t buscfg = {
@@ -318,9 +312,13 @@ extern "C"
             .max_transfer_sz = 1024
         };
         spi_device_interface_config_t devcfg = {
+            .command_bits = 0,
+            .address_bits = 0,
+            .dummy_bits = 0,
             .mode = 0,                  //SPI mode 0
-            .clock_speed_hz = 2500000,  //Clock out at 2.5 MHz
+            .clock_speed_hz = 250000,  //Clock out at 2.5 MHz
             .spics_io_num = ATTINY_CS,  //CS pin
+            .flags = SPI_DEVICE_POSITIVE_CS,
             .queue_size = 7,            //We want to be able to queue 7 transactions at a time
         };
         //Initialize the SPI bus
@@ -331,16 +329,38 @@ extern "C"
         ESP_ERROR_CHECK(ret);
 
         _attinyUpdateService = new ATTiny427ExpanderUpdateService(&_attinyRegisters);
+        _embeddedIOServiceCollection.AnalogService = new AnalogService_ATTiny427Expander(&_attinyRegisters);
+        _embeddedIOServiceCollection.AnalogService->InitPin(7);
 
-        Setup();
+        spi_transaction_t t;
+        memset(&t, 0, sizeof(t));
+        t.rx_buffer = inBuffer;
+        t.tx_buffer = outBuffer;
+        t.length = _attinyUpdateService->Transmit(outBuffer) * 8;
+        t.rxlength = 0;
+        if(spi_device_polling_transmit(spi, &t) == ESP_OK)
+            _attinyUpdateService->Receive(inBuffer, t.rxlength / 8);
+
+        ESP_LOGI("ATTINY", "length: %d", t.rxlength / 8);
+
+        // Setup();
         while (1)
         {
-            t.length = _attinyUpdateService->Transmit(outBuffer);
+            memset(&t, 0, sizeof(t));
+            t.rx_buffer = inBuffer;
+            t.tx_buffer = outBuffer;
+            t.length = _attinyUpdateService->Transmit(outBuffer) * 8;
+            t.rxlength = 0;
             if(spi_device_polling_transmit(spi, &t) == ESP_OK)
-                _attinyUpdateService->Receive(inBuffer, t.length);
+                _attinyUpdateService->Receive(inBuffer, t.rxlength / 8);
 
-            Loop();
-            vTaskDelay(1);
+            
+            ESP_LOGI("ATTINY", "length: %d\t PA7: %f %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x", t.rxlength / 8, _embeddedIOServiceCollection.AnalogService->ReadPin(7),
+                inBuffer[0], inBuffer[1], inBuffer[2], inBuffer[3], inBuffer[4], inBuffer[5], inBuffer[6], inBuffer[7], inBuffer[8], inBuffer[9],
+                inBuffer[10], inBuffer[11], inBuffer[12], inBuffer[13], inBuffer[14], inBuffer[15], inBuffer[16]);
+
+            // Loop();
+            vTaskDelay(100);
         }
     }
 }

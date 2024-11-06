@@ -1,5 +1,6 @@
 #include "ATTiny427ExpanderUpdateService.h"
 #include <cstring>
+#include "esp_log.h"
 
 #ifdef ATTINY427EXPANDERUPDATESERVICE_H
 namespace EmbeddedIOServices
@@ -21,9 +22,9 @@ namespace EmbeddedIOServices
                         _receiveLength = cmd & 0xF;
                         if(_receiveLength > 0)
                         {
-                            if(cmd & 0x4)
+                            if(cmd & 0x40)
                             {
-                                if(cmd & 0x2)
+                                if(cmd & 0x20)
                                 {
                                     _receiveAddress = 0;
                                 }
@@ -49,9 +50,9 @@ namespace EmbeddedIOServices
                     switch(_receiveAddress)
                     {
                         case 0x1C: //reading AnalogEnable pins and then Analog Values
-                            if(_receiveIndex > 2)
+                            if(_receiveIndex > 3)
                             {
-                                if(_receiveIndex % 2 == 1)
+                                if(_receiveIndex % 2 == 0)
                                 {
                                     _receiveAnalogValueHighByte = data[dataIndex++];
                                     _receiveIndex++;
@@ -85,6 +86,11 @@ namespace EmbeddedIOServices
                             }
                             else if(_receiveIndex == 2)
                             {
+                                dataIndex++;
+                                _receiveIndex++;
+                            }
+                            else if(_receiveIndex == 3)
+                            {
                                 _receiveAnalogCounter = data[dataIndex++];
                                 _receiveIndex++;
                             }
@@ -93,13 +99,13 @@ namespace EmbeddedIOServices
                             switch(_receiveIndex)
                             {
                                 case 0:
-                                    _registers->PORTA_IN = data[dataIndex++];
+                                    _registers->PORTC_IN = data[dataIndex++];
                                     break;
                                 case 2:
                                     _registers->PORTB_IN = data[dataIndex++];
                                     break;
                                 case 4:
-                                    _registers->PORTC_IN = data[dataIndex++];
+                                    _registers->PORTA_IN = data[dataIndex++];
                                     _receiveState = 0;
                                     break;
                                 default: 
@@ -166,13 +172,13 @@ namespace EmbeddedIOServices
                             }
 
                         default:
-                            _receiveState = 0;
+                            if(data[dataIndex++] == 0)
+                                _receiveState = 0;
                             break;
                             
                     }
                     break;
             }
-            dataIndex++;
         }
     }
     size_t ATTiny427ExpanderUpdateService::Transmit(uint8_t data[1024])
@@ -278,7 +284,7 @@ namespace EmbeddedIOServices
 
         while(state != -1)
         {
-            if(writeGPIOR && currentReadFinishedIndex < dataIndex)
+            if(writeGPIOR && currentReadFinishedIndex <= dataIndex)
             {
                 if(GPIOR0_changed)
                 {
@@ -322,7 +328,7 @@ namespace EmbeddedIOServices
 
                 writeGPIOR = false;
             }
-            if(readGPIO && currentReadFinishedIndex < dataIndex)
+            if(readGPIO && currentReadFinishedIndex <= dataIndex)
             {
                 data[dataIndex++] = 0x61; //read 1 byte from 8 bit address with 0 as high address byte
                 data[dataIndex++] = 0x0A; //address
@@ -333,7 +339,7 @@ namespace EmbeddedIOServices
                 currentReadFinishedIndex = dataIndex + 1;
                 readGPIO = false;
             }
-            if(readTCB && currentReadFinishedIndex < dataIndex)
+            if(readTCB && currentReadFinishedIndex <= dataIndex)
             {
 
             }
@@ -705,6 +711,12 @@ namespace EmbeddedIOServices
                     }
                 break;
             }
+        }
+
+        if(dataIndex > 0 && (transmitRegisters.Comm == SPI || transmitRegisters.Comm== SPIAlternate))
+        {
+            std::memset(&data[dataIndex], 0, 2);
+            dataIndex += 2;
         }
 
         _first = false;
