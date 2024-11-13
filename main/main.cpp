@@ -26,6 +26,7 @@
 #include "EmbeddedIOServiceCollection.h"
 #include "ATTiny427ExpanderUpdateService.h"
 #include "AnalogService_ATTiny427Expander.h"
+#include "DigitalService_ATTiny427Expander.h"
 #include "Esp32IdfDigitalService.h"
 #include "Esp32IdfTimerService.h"
 #include "Esp32IdfAnalogService.h"
@@ -158,10 +159,6 @@ extern "C"
         return true;
     }
 
-    ATTiny427Expander_Registers _attinyRegisters(SPI);
-    ATTiny427ExpanderUpdateService *_attinyUpdateService;
-    AnalogService_ATTiny427Expander *_attinyAnalogService;
-
     void Setup() 
     {
         if(!loadConfig())
@@ -200,6 +197,11 @@ extern "C"
         }
     }
 
+    ATTiny427Expander_Registers _attinyRegisters(SPI);
+    ATTiny427ExpanderUpdateService *_attinyUpdateService;
+    AnalogService_ATTiny427Expander *_attinyAnalogService;
+    DigitalService_ATTiny427Expander *_attinyDigitalService;
+
     uint32_t transactionCount = 0;
     uint32_t prevTransactionCount = 0;
     spi_device_handle_t attinySPI;
@@ -209,6 +211,7 @@ extern "C"
     void attinyTransactionCB(spi_transaction_t *t)
     {
         _attinyUpdateService->Receive(inBuffer, t->rxlength / 8);
+        _attinyDigitalService->Update();
 
         t->length = _attinyUpdateService->Transmit(outBuffer) * 8;
         t->rxlength = 0;
@@ -314,8 +317,10 @@ extern "C"
         mount_spiffs("/SPIFFS");
         start_http_server("/SPIFFS");
 
-        AnalogService_ATTiny427Expander *analogService = new AnalogService_ATTiny427Expander(&_attinyRegisters);
-
+        _attinyUpdateService = new ATTiny427ExpanderUpdateService(&_attinyRegisters);
+        _attinyAnalogService = new AnalogService_ATTiny427Expander(&_attinyRegisters);
+        _attinyDigitalService = new DigitalService_ATTiny427Expander(&_attinyRegisters);
+        
         spi_bus_config_t attinybuscfg = {
             .mosi_io_num = ATTINY_MOSI,
             .miso_io_num = ATTINY_MISO,
@@ -341,10 +346,6 @@ extern "C"
         //Attach the LCD to the SPI bus
         ret = spi_bus_add_device(SPI2_HOST, &attinydevcfg, &attinySPI);
         ESP_ERROR_CHECK(ret);
-
-        _attinyUpdateService = new ATTiny427ExpanderUpdateService(&_attinyRegisters);
-        _attinyAnalogService = new AnalogService_ATTiny427Expander(&_attinyRegisters);
-        _attinyAnalogService->InitPin(7);
 
         spi_transaction_t t;
         memset(&t, 0, sizeof(t));
