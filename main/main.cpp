@@ -160,6 +160,7 @@ extern "C"
 
     ATTiny427Expander_Registers _attinyRegisters(SPI);
     ATTiny427ExpanderUpdateService *_attinyUpdateService;
+    AnalogService_ATTiny427Expander *_attinyAnalogService;
 
     void Setup() 
     {
@@ -199,8 +200,21 @@ extern "C"
         }
     }
 
+    uint32_t transactionCount = 0;
+    uint32_t prevTransactionCount = 0;
+    spi_device_handle_t attinySPI;
     DMA_ATTR uint8_t inBuffer[1024];
     DMA_ATTR uint8_t outBuffer[1024];
+
+    void attinyTransactionCB(spi_transaction_t *t)
+    {
+        _attinyUpdateService->Receive(inBuffer, t->rxlength / 8);
+
+        t->length = _attinyUpdateService->Transmit(outBuffer) * 8;
+        t->rxlength = 0;
+        spi_device_queue_trans(attinySPI, t, 0);
+        transactionCount++;
+    }
 
     void app_main()
     {
@@ -302,8 +316,7 @@ extern "C"
 
         AnalogService_ATTiny427Expander *analogService = new AnalogService_ATTiny427Expander(&_attinyRegisters);
 
-        spi_device_handle_t spi;
-        spi_bus_config_t buscfg = {
+        spi_bus_config_t attinybuscfg = {
             .mosi_io_num = ATTINY_MOSI,
             .miso_io_num = ATTINY_MISO,
             .sclk_io_num = ATTINY_CLK,
@@ -311,56 +324,45 @@ extern "C"
             .quadhd_io_num = -1,
             .max_transfer_sz = 1024
         };
-        spi_device_interface_config_t devcfg = {
+        spi_device_interface_config_t attinydevcfg = {
             .command_bits = 0,
             .address_bits = 0,
             .dummy_bits = 0,
             .mode = 0,                  //SPI mode 0
-            .clock_speed_hz = 250000,  //Clock out at 2.5 MHz
+            .clock_speed_hz = 2500000,  //Clock out at 2.5 MHz
             .spics_io_num = ATTINY_CS,  //CS pin
             .flags = SPI_DEVICE_POSITIVE_CS,
             .queue_size = 7,            //We want to be able to queue 7 transactions at a time
+            .post_cb = attinyTransactionCB
         };
         //Initialize the SPI bus
-        ret = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO);
+        ret = spi_bus_initialize(SPI2_HOST, &attinybuscfg, SPI_DMA_CH_AUTO);
         ESP_ERROR_CHECK(ret);
         //Attach the LCD to the SPI bus
-        ret = spi_bus_add_device(SPI2_HOST, &devcfg, &spi);
+        ret = spi_bus_add_device(SPI2_HOST, &attinydevcfg, &attinySPI);
         ESP_ERROR_CHECK(ret);
 
         _attinyUpdateService = new ATTiny427ExpanderUpdateService(&_attinyRegisters);
-        _embeddedIOServiceCollection.AnalogService = new AnalogService_ATTiny427Expander(&_attinyRegisters);
-        _embeddedIOServiceCollection.AnalogService->InitPin(7);
+        _attinyAnalogService = new AnalogService_ATTiny427Expander(&_attinyRegisters);
+        _attinyAnalogService->InitPin(7);
 
         spi_transaction_t t;
         memset(&t, 0, sizeof(t));
         t.rx_buffer = inBuffer;
         t.tx_buffer = outBuffer;
-        t.length = _attinyUpdateService->Transmit(outBuffer) * 8;
-        t.rxlength = 0;
-        if(spi_device_polling_transmit(spi, &t) == ESP_OK)
-            _attinyUpdateService->Receive(inBuffer, t.rxlength / 8);
-
-        ESP_LOGI("ATTINY", "length: %d", t.rxlength / 8);
+        t.length = t.rxlength = 0;
+        attinyTransactionCB(&t);
 
         // Setup();
         while (1)
-        {
-            memset(&t, 0, sizeof(t));
-            t.rx_buffer = inBuffer;
-            t.tx_buffer = outBuffer;
-            t.length = _attinyUpdateService->Transmit(outBuffer) * 8;
-            t.rxlength = 0;
-            if(spi_device_polling_transmit(spi, &t) == ESP_OK)
-                _attinyUpdateService->Receive(inBuffer, t.rxlength / 8);
-
-            
-            ESP_LOGI("ATTINY", "length: %d\t PA7: %f %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x", t.rxlength / 8, _embeddedIOServiceCollection.AnalogService->ReadPin(7),
+        {          
+            vTaskDelay(100);
+            ESP_LOGI("ATTINY", "transactions/s: %lu\tlength: %d\t PA7: %f %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x", (transactionCount - prevTransactionCount) * 10, t.rxlength / 8, _attinyAnalogService->ReadPin(7),
                 inBuffer[0], inBuffer[1], inBuffer[2], inBuffer[3], inBuffer[4], inBuffer[5], inBuffer[6], inBuffer[7], inBuffer[8], inBuffer[9],
                 inBuffer[10], inBuffer[11], inBuffer[12], inBuffer[13], inBuffer[14], inBuffer[15], inBuffer[16]);
+            prevTransactionCount = transactionCount;
 
             // Loop();
-            vTaskDelay(100);
         }
     }
 }
