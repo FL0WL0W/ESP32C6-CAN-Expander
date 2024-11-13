@@ -24,6 +24,8 @@
 #include <lwip/netdb.h>
 
 #include "EmbeddedIOServiceCollection.h"
+#include "AnalogService_Expander.h"
+#include "DigitalService_Expander.h"
 #include "ATTiny427ExpanderUpdateService.h"
 #include "AnalogService_ATTiny427Expander.h"
 #include "DigitalService_ATTiny427Expander.h"
@@ -167,10 +169,10 @@ extern "C"
             return;
         _variableMap = new GeneratorMap<Variable>();
 
-        if(_embeddedIOServiceCollection.DigitalService == 0)
-            _embeddedIOServiceCollection.DigitalService = new Esp32IdfDigitalService();
-        if(_embeddedIOServiceCollection.AnalogService == 0)
-            _embeddedIOServiceCollection.AnalogService = new Esp32IdfAnalogService();
+        // if(_embeddedIOServiceCollection.DigitalService == 0)
+        //     _embeddedIOServiceCollection.DigitalService = new Esp32IdfDigitalService();
+        // if(_embeddedIOServiceCollection.AnalogService == 0)
+        //     _embeddedIOServiceCollection.AnalogService = new Esp32IdfAnalogService();
         if(_embeddedIOServiceCollection.TimerService == 0)
             _embeddedIOServiceCollection.TimerService = new Esp32IdfTimerService();
         
@@ -196,6 +198,9 @@ extern "C"
             _engineMain->Loop();
         }
     }
+
+    Esp32IdfAnalogService *_esp32AnalogService;
+    Esp32IdfDigitalService *_esp32DigitalService;
 
     ATTiny427Expander_Registers _attinyRegisters(SPI);
     ATTiny427ExpanderUpdateService *_attinyUpdateService;
@@ -317,9 +322,15 @@ extern "C"
         mount_spiffs("/SPIFFS");
         start_http_server("/SPIFFS");
 
+        _esp32AnalogService = new Esp32IdfAnalogService();
+        _esp32DigitalService = new Esp32IdfDigitalService();
+
         _attinyUpdateService = new ATTiny427ExpanderUpdateService(&_attinyRegisters);
         _attinyAnalogService = new AnalogService_ATTiny427Expander(&_attinyRegisters);
         _attinyDigitalService = new DigitalService_ATTiny427Expander(&_attinyRegisters);
+
+        _embeddedIOServiceCollection.AnalogService = new AnalogService_Expander(_esp32AnalogService, _attinyAnalogService);
+        _embeddedIOServiceCollection.DigitalService = new DigitalService_Expander(_esp32DigitalService, _attinyDigitalService);
 
         spi_bus_config_t attinybuscfg = {
             .mosi_io_num = ATTINY_MOSI,
