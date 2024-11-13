@@ -320,7 +320,7 @@ extern "C"
         _attinyUpdateService = new ATTiny427ExpanderUpdateService(&_attinyRegisters);
         _attinyAnalogService = new AnalogService_ATTiny427Expander(&_attinyRegisters);
         _attinyDigitalService = new DigitalService_ATTiny427Expander(&_attinyRegisters);
-        
+
         spi_bus_config_t attinybuscfg = {
             .mosi_io_num = ATTINY_MOSI,
             .miso_io_num = ATTINY_MISO,
@@ -354,16 +354,12 @@ extern "C"
         t.length = t.rxlength = 0;
         attinyTransactionCB(&t);
 
-        // Setup();
+        Setup();
         while (1)
         {          
-            vTaskDelay(100);
-            ESP_LOGI("ATTINY", "transactions/s: %lu\tlength: %d\t PA7: %f %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x", (transactionCount - prevTransactionCount) * 10, t.rxlength / 8, _attinyAnalogService->ReadPin(7),
-                inBuffer[0], inBuffer[1], inBuffer[2], inBuffer[3], inBuffer[4], inBuffer[5], inBuffer[6], inBuffer[7], inBuffer[8], inBuffer[9],
-                inBuffer[10], inBuffer[11], inBuffer[12], inBuffer[13], inBuffer[14], inBuffer[15], inBuffer[16]);
-            prevTransactionCount = transactionCount;
+            vTaskDelay(1);
 
-            // Loop();
+            Loop();
         }
     }
 }
