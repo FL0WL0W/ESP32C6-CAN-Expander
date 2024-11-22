@@ -33,7 +33,8 @@
 #include "Esp32IdfTimerService.h"
 #include "Esp32IdfAnalogService.h"
 #include "Esp32IdfPwmService.h"
-#include "EFIGenieMain.h"
+#include "Esp32IdfCANService.h"
+#include "ExpanderMain.h"
 #include "Variable.h"
 #include "CallBack.h"
 #include "Config.h"
@@ -103,7 +104,7 @@ extern "C"
     GeneratorMap<Variable> *_variableMap;
     EmbeddedIOServiceCollection _embeddedIOServiceCollection;
     CommunicationHandler_EFIGenie *_efiGenieHandler;
-    EFIGenieMain *_engineMain;
+    ExpanderMain *_expanderMain;
     Variable *loopTime;
     uint32_t prev;
 
@@ -125,7 +126,7 @@ extern "C"
         return true;
     }
 
-    bool enginemain_write(void *destination, const void *data, size_t length) {
+    bool expandermain_write(void *destination, const void *data, size_t length) {
         if(reinterpret_cast<size_t>(destination) >= 0x20000000 && reinterpret_cast<size_t>(destination) <= 0x2000FA00)
         {
             std::memcpy(destination, data, length);
@@ -138,25 +139,25 @@ extern "C"
         return true;
     }
 
-    bool enginemain_quit() {
-        if(_engineMain != 0)
+    bool expandermain_quit() {
+        if(_expanderMain != 0)
         {
-            delete _engineMain;
-            _engineMain = 0;
+            delete _expanderMain;
+            _expanderMain = 0;
         }
         return true;
     }
 
-    bool enginemain_start() {
-        if(_engineMain == 0)
+    bool expandermain_start() {
+        if(_expanderMain == 0)
         {
             if(!loadConfig())
                 return false;
 
             size_t configSize = 0;
-            _engineMain = new EFIGenieMain(&_config, configSize, &_embeddedIOServiceCollection, _variableMap);
+            _expanderMain = new ExpanderMain(&_config, configSize, &_embeddedIOServiceCollection, _variableMap);
 
-            _engineMain->Setup();
+            _expanderMain->Setup();
         }
         return true;
     }
@@ -169,22 +170,12 @@ extern "C"
             return;
         _variableMap = new GeneratorMap<Variable>();
 
-        // if(_embeddedIOServiceCollection.DigitalService == 0)
-        //     _embeddedIOServiceCollection.DigitalService = new Esp32IdfDigitalService();
-        // if(_embeddedIOServiceCollection.AnalogService == 0)
-        //     _embeddedIOServiceCollection.AnalogService = new Esp32IdfAnalogService();
-        if(_embeddedIOServiceCollection.TimerService == 0)
-            _embeddedIOServiceCollection.TimerService = new Esp32IdfTimerService();
-        
-        // if(_embeddedIOServiceCollection.PwmService == 0)
-        //     _embeddedIOServiceCollection.PwmService = new Esp32IdfPwmService();
-
         size_t _configSize = 0;
-        _engineMain = new EFIGenieMain(reinterpret_cast<void*>(_config), _configSize, &_embeddedIOServiceCollection, _variableMap);
+        _expanderMain = new ExpanderMain(reinterpret_cast<void*>(_config), _configSize, &_embeddedIOServiceCollection, _variableMap);
 
-        _efiGenieHandler = new CommunicationHandler_EFIGenie(_variableMap, enginemain_write, enginemain_quit, enginemain_start, _config);
+        _efiGenieHandler = new CommunicationHandler_EFIGenie(_variableMap, expandermain_write, expandermain_quit, expandermain_start, _config);
 
-        _engineMain->Setup();
+        _expanderMain->Setup();
         loopTime = _variableMap->GenerateValue(250);
     }
     void Loop() 
@@ -194,8 +185,8 @@ extern "C"
         prev = now;
         // _cdcService->Flush();
 
-        if(_engineMain != 0) {
-            _engineMain->Loop();
+        if(_expanderMain != 0) {
+            _expanderMain->Loop();
         }
     }
 
@@ -213,7 +204,7 @@ extern "C"
     DMA_ATTR uint8_t inBuffer[1024];
     DMA_ATTR uint8_t outBuffer[1024];
 
-    void attinyTransactionCB(spi_transaction_t *t)
+    void IRAM_ATTR attinyTransactionCB(spi_transaction_t *t)
     {
         _attinyUpdateService->Receive(inBuffer, t->rxlength / 8);
         _attinyDigitalService->Update();
@@ -331,6 +322,8 @@ extern "C"
 
         _embeddedIOServiceCollection.AnalogService = new AnalogService_Expander(_esp32AnalogService, _attinyAnalogService);
         _embeddedIOServiceCollection.DigitalService = new DigitalService_Expander(_esp32DigitalService, _attinyDigitalService);
+        _embeddedIOServiceCollection.TimerService = new Esp32IdfTimerService();
+        _embeddedIOServiceCollection.CANService = new Esp32IdfCANService();
 
         spi_bus_config_t attinybuscfg = {
             .mosi_io_num = ATTINY_MOSI,
@@ -365,12 +358,12 @@ extern "C"
         t.length = t.rxlength = 0;
         attinyTransactionCB(&t);
 
-        Setup();
+        // Setup();
         while (1)
         {          
             vTaskDelay(1);
 
-            Loop();
+            // Loop();
         }
     }
 }

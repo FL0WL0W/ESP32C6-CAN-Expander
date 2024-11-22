@@ -52,7 +52,11 @@ static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filena
     if (IS_FILE_EXT(filename, ".pdf")) {
         return httpd_resp_set_type(req, "application/pdf");
     } else if (IS_FILE_EXT(filename, ".html")) {
-        return httpd_resp_set_type(req, "text/html");
+        return httpd_resp_set_type(req, "text/html; charset=\"UTF-8\"");
+    } else if (IS_FILE_EXT(filename, ".css")) {
+        return httpd_resp_set_type(req, "text/css; charset=\"UTF-8\"");
+    } else if (IS_FILE_EXT(filename, ".js")) {
+        return httpd_resp_set_type(req, "text/javascript; charset=\"UTF-8\"");
     } else if (IS_FILE_EXT(filename, ".jpeg")) {
         return httpd_resp_set_type(req, "image/jpeg");
     } else if (IS_FILE_EXT(filename, ".ico")) {
@@ -79,6 +83,11 @@ static const char* get_path_from_uri(char *dest, const char *base_path, const ch
         pathlen = MIN(pathlen, hash - uri);
     }
 
+    if(pathlen < 2) {
+        uri = "/index.html";
+        pathlen = strlen(uri);
+    }
+
     if (base_pathlen + pathlen + 1 > destsize) {
         /* Full path string won't fit into destination buffer */
         return NULL;
@@ -101,11 +110,18 @@ static esp_err_t download_get_handler(httpd_req_t *req)
 
     const char *filename = get_path_from_uri(filepath, ((struct http_server_data *)req->user_ctx)->base_path,
                                              req->uri, sizeof(filepath));
+
     if (!filename) {
         ESP_LOGE(TAG, "Filename is too long");
         /* Respond with 500 Internal Server Error */
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Filename too long\r\n");
         return ESP_FAIL;
+    }
+
+    if (stat(filepath, &file_stat) == -1) {
+        httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
+        set_content_type_from_file(req, filename);
+        strcat(filepath, ".gz");
     }
 
     if (stat(filepath, &file_stat) == -1) {
@@ -124,7 +140,6 @@ static esp_err_t download_get_handler(httpd_req_t *req)
     }
 
     ESP_LOGI(TAG, "Sending file : %s (%ld bytes)...", filename, file_stat.st_size);
-    set_content_type_from_file(req, filename);
 
     /* Retrieve the pointer to scratch buffer for temporary storage */
     char *chunk = ((struct http_server_data *)req->user_ctx)->scratch;
@@ -265,10 +280,9 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
     }
 
     if (stat(filepath, &file_stat) == 0) {
-        ESP_LOGE(TAG, "File already exists : %s", filepath);
-        /* Respond with 400 Bad Request */
-        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "File already exists\r\n");
-        return ESP_FAIL;
+        ESP_LOGI(TAG, "File already exists : %s", filepath);
+        ESP_LOGI(TAG, "Delting : %s", filepath);
+        unlink(filepath);
     }
 
     /* File cannot be larger than a limit */
@@ -345,8 +359,7 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
     ESP_LOGI(TAG, "File reception complete");
 
     /* Redirect onto root to see the updated file list */
-    httpd_resp_set_status(req, "303 See Other");
-    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_set_status(req, "200");
     httpd_resp_sendstr(req, "File uploaded successfully\r\n");
     return ESP_OK;
 }
@@ -386,8 +399,7 @@ static esp_err_t delete_post_handler(httpd_req_t *req)
     unlink(filepath);
 
     /* Redirect onto root to see the updated file list */
-    httpd_resp_set_status(req, "303 See Other");
-    httpd_resp_set_hdr(req, "Location", "/");
+    httpd_resp_set_status(req, "200");
     httpd_resp_sendstr(req, "File deleted successfully\r\n");
     return ESP_OK;
 }
