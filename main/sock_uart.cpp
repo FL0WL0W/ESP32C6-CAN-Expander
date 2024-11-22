@@ -47,6 +47,7 @@ sock_uart_read_cleanup:
     shutdown(config->sock, 0);
     close(config->sock);
     vTaskDelete(NULL);
+    delete config;
 }
 
 extern "C" {
@@ -115,12 +116,12 @@ extern "C" {
             setsockopt(sock, IPPROTO_IP, IP_TOS, &tos, sizeof(int));
 
             config->sock_rx_hook(0, 0);
-            sock_uart_read_config_t sock_uart_read_config = 
+            sock_uart_read_config_t *sock_uart_read_config = new sock_uart_read_config_t(
             {
                 .sock_uart_config = config,
                 .sock = sock
-            };
-            xTaskCreate(sock_uart_read, "sock_uart_read", 4096, &sock_uart_read_config, 10, NULL);
+            });
+            xTaskCreate(sock_uart_read, "sock_uart_read", 4096, sock_uart_read_config, 10, NULL);
         }
 
 sock_uart_cleanup:

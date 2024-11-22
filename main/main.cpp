@@ -34,6 +34,7 @@
 #include "Esp32IdfAnalogService.h"
 #include "Esp32IdfPwmService.h"
 #include "Esp32IdfCANService.h"
+#include "Esp32IdfCommunicationService_Socket.h"
 #include "ExpanderMain.h"
 #include "Variable.h"
 #include "CallBack.h"
@@ -103,6 +104,7 @@ extern "C"
     void *_config = 0;
     GeneratorMap<Variable> *_variableMap;
     EmbeddedIOServiceCollection _embeddedIOServiceCollection;
+    ICommunicationService *_communicationService;
     CommunicationHandler_EFIGenie *_efiGenieHandler;
     ExpanderMain *_expanderMain;
     Variable *loopTime;
@@ -110,7 +112,7 @@ extern "C"
 
     bool loadConfig()
     {
-        const char * configPath = "/SPIFFS/Config.bin";
+        const char * configPath = "/SPIFFS/config.bin";
         FILE *fd = NULL;
         struct stat file_stat;
 
@@ -180,12 +182,10 @@ extern "C"
     }
     void Loop() 
     {
-        const tick_t now = _embeddedIOServiceCollection.TimerService->GetTick();
-        *loopTime = (float)(now-prev) / _embeddedIOServiceCollection.TimerService->GetTicksPerSecond();
-        prev = now;
-        // _cdcService->Flush();
-
         if(_expanderMain != 0) {
+            const tick_t now = _embeddedIOServiceCollection.TimerService->GetTick();
+            *loopTime = (float)(now-prev) / _embeddedIOServiceCollection.TimerService->GetTicksPerSecond();
+            prev = now;
             _expanderMain->Loop();
         }
     }
@@ -324,6 +324,7 @@ extern "C"
         _embeddedIOServiceCollection.DigitalService = new DigitalService_Expander(_esp32DigitalService, _attinyDigitalService);
         _embeddedIOServiceCollection.TimerService = new Esp32IdfTimerService();
         _embeddedIOServiceCollection.CANService = new Esp32IdfCANService();
+        _communicationService = new Esp32IdfCommunicationService_Socket(8010);
 
         spi_bus_config_t attinybuscfg = {
             .mosi_io_num = ATTINY_MOSI,
@@ -358,12 +359,12 @@ extern "C"
         t.length = t.rxlength = 0;
         attinyTransactionCB(&t);
 
-        // Setup();
+        Setup();
         while (1)
         {          
             vTaskDelay(1);
 
-            // Loop();
+            Loop();
         }
     }
 }
