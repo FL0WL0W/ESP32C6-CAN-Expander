@@ -13,7 +13,6 @@
 
 #include "esp_vfs.h"
 #include "esp_spiffs.h"
-#include "esp_http_server.h"
 
 #define UPDI_UART_RX_PIN (gpio_num_t)15
 #define UPDI_UART_TX_PIN (gpio_num_t)14
@@ -51,6 +50,8 @@ static esp_err_t set_content_type_from_file(httpd_req_t *req, const char *filena
 {
     if (IS_FILE_EXT(filename, ".pdf")) {
         return httpd_resp_set_type(req, "application/pdf");
+    } else if (IS_FILE_EXT(filename, ".bin")) {
+        return httpd_resp_set_type(req, "application/octet-stream");
     } else if (IS_FILE_EXT(filename, ".html")) {
         return httpd_resp_set_type(req, "text/html; charset=\"UTF-8\"");
     } else if (IS_FILE_EXT(filename, ".css")) {
@@ -118,9 +119,9 @@ static esp_err_t download_get_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
+    set_content_type_from_file(req, filename);
     if (stat(filepath, &file_stat) == -1) {
         httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
-        set_content_type_from_file(req, filename);
         strcat(filepath, ".gz");
     }
 
@@ -404,8 +405,27 @@ static esp_err_t delete_post_handler(httpd_req_t *req)
     return ESP_OK;
 }
 
+httpd_handle_t server = NULL;
 /* Function to start the file server */
-esp_err_t start_http_server(const char *base_path)
+esp_err_t start_http_server()
+{
+    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+
+    /* Use the URI wildcard matching function in order to
+     * allow the same handler to respond to multiple different
+     * target URIs which match the wildcard scheme */
+    config.uri_match_fn = httpd_uri_match_wildcard;
+
+    ESP_LOGI(TAG, "Starting HTTP Server on port: '%d'", config.server_port);
+    if (httpd_start(&server, &config) != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to start HTTP server!");
+        return ESP_FAIL;
+    }
+
+    return ESP_OK;
+}
+
+esp_err_t register_file_handler_http_server(const char *base_path)
 {
     static struct http_server_data *server_data = NULL;
 
@@ -422,20 +442,6 @@ esp_err_t start_http_server(const char *base_path)
     }
     strlcpy(server_data->base_path, base_path,
             sizeof(server_data->base_path));
-
-    httpd_handle_t server = NULL;
-    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-
-    /* Use the URI wildcard matching function in order to
-     * allow the same handler to respond to multiple different
-     * target URIs which match the wildcard scheme */
-    config.uri_match_fn = httpd_uri_match_wildcard;
-
-    ESP_LOGI(TAG, "Starting HTTP Server on port: '%d'", config.server_port);
-    if (httpd_start(&server, &config) != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to start HTTP server!");
-        return ESP_FAIL;
-    }
 
     /* URI handler for getting uploaded files */
     httpd_uri_t file_download = {

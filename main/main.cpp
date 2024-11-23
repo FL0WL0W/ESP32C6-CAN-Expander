@@ -35,6 +35,7 @@
 #include "Esp32IdfPwmService.h"
 #include "Esp32IdfCANService.h"
 #include "Esp32IdfCommunicationService_Socket.h"
+#include "Esp32IdfCommunicationService_WebSocket.h"
 #include "ExpanderMain.h"
 #include "Variable.h"
 #include "CallBack.h"
@@ -176,6 +177,8 @@ extern "C"
         _expanderMain = new ExpanderMain(reinterpret_cast<void*>(_config), _configSize, &_embeddedIOServiceCollection, _variableMap);
 
         _efiGenieHandler = new CommunicationHandler_EFIGenie(_variableMap, expandermain_write, expandermain_quit, expandermain_start, _config);
+        // ESP_LOGI("ASDF", "_config %p ", _efiGenieHandler->_config);
+        _communicationService->RegisterReceiveCallBack([](communication_send_callback_t send, const void *data, size_t length){ return _efiGenieHandler->Receive(send, data, length);});
 
         _expanderMain->Setup();
         loopTime = _variableMap->GenerateValue(250);
@@ -310,8 +313,7 @@ extern "C"
         // xTaskCreate(echo_task, "echo_task", 2048, NULL, 10, NULL);
 
         // mount_sd("/SD");
-        mount_spiffs("/SPIFFS");
-        start_http_server("/SPIFFS");
+        start_http_server();
 
         _esp32AnalogService = new Esp32IdfAnalogService();
         _esp32DigitalService = new Esp32IdfDigitalService();
@@ -324,7 +326,10 @@ extern "C"
         _embeddedIOServiceCollection.DigitalService = new DigitalService_Expander(_esp32DigitalService, _attinyDigitalService);
         _embeddedIOServiceCollection.TimerService = new Esp32IdfTimerService();
         _embeddedIOServiceCollection.CANService = new Esp32IdfCANService();
-        _communicationService = new Esp32IdfCommunicationService_Socket(8010);
+        _communicationService = new Esp32IdfCommunicationService_WebSocket(server, "/EFIGenieCommunication");
+
+        mount_spiffs("/SPIFFS");
+        register_file_handler_http_server("/SPIFFS");
 
         spi_bus_config_t attinybuscfg = {
             .mosi_io_num = ATTINY_MOSI,
