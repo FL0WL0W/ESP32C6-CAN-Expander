@@ -325,7 +325,20 @@ extern "C"
         _embeddedIOServiceCollection.AnalogService = new AnalogService_Expander(_esp32AnalogService, _attinyAnalogService);
         _embeddedIOServiceCollection.DigitalService = new DigitalService_Expander(_esp32DigitalService, _attinyDigitalService);
         _embeddedIOServiceCollection.TimerService = new Esp32IdfTimerService();
-        _embeddedIOServiceCollection.CANService = new Esp32IdfCANService();
+        const Esp32IdfCANServiceChannelConfig canconfigs[2] 
+        {
+            {
+                .t_config = TWAI_TIMING_CONFIG_500KBITS(),
+                .f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL(),
+                .g_config = TWAI_GENERAL_CONFIG_DEFAULT_V2(0, (gpio_num_t)9, (gpio_num_t)8, TWAI_MODE_NORMAL)
+            },
+            {
+                .t_config = TWAI_TIMING_CONFIG_500KBITS(),
+                .f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL(),
+                .g_config = TWAI_GENERAL_CONFIG_DEFAULT_V2(1, (gpio_num_t)3, (gpio_num_t)2, TWAI_MODE_NORMAL)
+            }
+        };
+        _embeddedIOServiceCollection.CANService = new Esp32IdfCANService(canconfigs);
         _communicationService = new Esp32IdfCommunicationService_WebSocket(server, "/EFIGenieCommunication");
 
         mount_spiffs("/SPIFFS");
