@@ -19,18 +19,21 @@ namespace Esp32
 				}
 				httpd_ws_frame_t ws_pkt;
 				memset(&ws_pkt, 0, sizeof(httpd_ws_frame_t));
-				ws_pkt.type = HTTPD_WS_TYPE_BINARY;
         		ws_pkt.payload = commService->buf;
 				esp_err_t ret = httpd_ws_recv_frame(req, &ws_pkt, 1024);
 				if (ret == ESP_OK) 
 				{
-					commService->Receive(ws_pkt.payload, ws_pkt.len);
+					if(ws_pkt.type == HTTPD_WS_TYPE_BINARY)
+						commService->Receive(ws_pkt.payload, ws_pkt.len);
+					if(ws_pkt.type == HTTPD_WS_TYPE_CLOSE)
+						commService->_fds.remove(httpd_req_to_sockfd(req));
 				}
 
 				return ESP_OK;
 			},
 			.user_ctx   = this,
-			.is_websocket = true
+			.is_websocket = true,
+			.handle_ws_control_frames = true
 		};
 
         httpd_register_uri_handler(_server, &ws);
