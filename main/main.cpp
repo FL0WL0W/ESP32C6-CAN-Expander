@@ -357,7 +357,7 @@ extern "C"
             .address_bits = 0,
             .dummy_bits = 0,
             .mode = 0,                  //SPI mode 0
-            .clock_speed_hz = 2500000,  //Clock out at 2.5 MHz
+            .clock_speed_hz = 2400000,  //Clock out at 2.4 MHz. Theoretical 2.5Mhz doesn't work when ATTiny is using internal oscillator. running any faster loses MSB
             .spics_io_num = ATTINY_CS,  //CS pin
             .flags = SPI_DEVICE_POSITIVE_CS,
             .queue_size = 7,            //We want to be able to queue 7 transactions at a time
