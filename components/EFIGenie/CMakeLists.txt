@@ -1,74 +1,32 @@
-idf_component_register()
+set(LIBRARIES_DIR	    ${CMAKE_SOURCE_DIR}/libs)
+set(EmbeddedIOServicesHardwareAbstraction_Path ${LIBRARIES_DIR}/EmbeddedIOServices/HardwareAbstractions/Esp32Idf)
+set(ATTinyHardwareAbstraction_Path ${LIBRARIES_DIR}/EmbeddedIOServices/HardwareAbstractions/ATTiny427Expander)
 
-execute_process(
-    COMMAND ping www.github.com -w 1
-    RESULT_VARIABLE NO_CONNECTION
-)
-if(NO_CONNECTION GREATER 0)
-    set(UPDATE_DISCONNECTED 1)
-else()
-    set(UPDATE_DISCONNECTED 0)
-endif()
+idf_component_register( SRCS "JustAFile.cpp"
+                        INCLUDE_DIRS "${EmbeddedIOServicesHardwareAbstraction_Path}/include" "${ATTinyHardwareAbstraction_Path}/include"
+                        PRIV_REQUIRES driver esp_http_server)
 
-include(ExternalProject)
+include(FetchContent)
 
-set(EFIGENIE_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/efigenie_install)
-
-externalproject_add(efigenie_proj
+FetchContent_Declare(
+    EFIGenie
     GIT_REPOSITORY https://github.com/FL0WL0W/EFIGenie
-    GIT_TAG main
-
-    CMAKE_ARGS
-        -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
-        -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
-
-    USES_TERMINAL_DOWNLOAD TRUE
-    USES_TERMINAL_CONFIGURE TRUE
-    USES_TERMINAL_BUILD TRUE
-
-    UPDATE_DISCONNECTED ${UPDATE_DISCONNECTED}
-
-    INSTALL_DIR ${EFIGENIE_INSTALL_DIR}
-    BUILD_BYPRODUCTS "${EFIGENIE_INSTALL_DIR}/lib/libOperationArchitecture.a"
-    BUILD_BYPRODUCTS "${EFIGENIE_INSTALL_DIR}/lib/libEmbeddedIOServices.a"
-    BUILD_BYPRODUCTS "${EFIGENIE_INSTALL_DIR}/lib/libEmbeddedIOOperations.a"
-    BUILD_BYPRODUCTS "${EFIGENIE_INSTALL_DIR}/lib/libReluctorOperations.a"
-    BUILD_BYPRODUCTS "${EFIGENIE_INSTALL_DIR}/lib/libEFIGenie.a"
+    GIT_TAG        main
+    GIT_PROGRESS   TRUE
+    GIT_SHALLOW    TRUE
+    SOURCE_DIR  ${LIBRARIES_DIR}/EFIGenie
 )
 
-add_prebuilt_library(operationarchitecture_lib "${EFIGENIE_INSTALL_DIR}/lib/libOperationArchitecture.a" PRIV_REQUIRES cxx)
-add_dependencies(operationarchitecture_lib efigenie_proj)
+FetchContent_MakeAvailable(EFIGenie)
 
-add_prebuilt_library(embeddedioservices_lib "${EFIGENIE_INSTALL_DIR}/lib/libEmbeddedIOServices.a" PRIV_REQUIRES cxx)
-add_dependencies(embeddedioservices_lib efigenie_proj)
+target_link_libraries(${COMPONENT_LIB} PUBLIC EFIGenie)
 
-add_prebuilt_library(embeddediooperations_lib "${EFIGENIE_INSTALL_DIR}/lib/libEmbeddedIOOperations.a" PRIV_REQUIRES cxx)
-add_dependencies(embeddediooperations_lib efigenie_proj)
-target_link_libraries(embeddediooperations_lib INTERFACE operationarchitecture_lib)
-target_link_libraries(embeddediooperations_lib INTERFACE embeddedioservices_lib)
-
-add_prebuilt_library(reluctoroperations_lib "${EFIGENIE_INSTALL_DIR}/lib/libReluctorOperations.a" PRIV_REQUIRES cxx)
-add_dependencies(reluctoroperations_lib efigenie_proj)
-target_link_libraries(reluctoroperations_lib INTERFACE operationarchitecture_lib)
-target_link_libraries(reluctoroperations_lib INTERFACE embeddedioservices_lib)
-target_link_libraries(reluctoroperations_lib INTERFACE embeddediooperations_lib)
-
-add_prebuilt_library(efigenie_lib "${EFIGENIE_INSTALL_DIR}/lib/libEFIGenie.a" PRIV_REQUIRES cxx)
-add_dependencies(efigenie_lib efigenie_proj)
-target_link_libraries(efigenie_lib INTERFACE operationarchitecture_lib)
-target_link_libraries(efigenie_lib INTERFACE embeddedioservices_lib)
-target_link_libraries(efigenie_lib INTERFACE embeddediooperations_lib)
-target_link_libraries(efigenie_lib INTERFACE reluctoroperations_lib)
-target_link_libraries(${COMPONENT_LIB} INTERFACE efigenie_lib)
-
-set(EmbeddedIOServicesHardwareAbstraction_Path ${CMAKE_CURRENT_BINARY_DIR}/efigenie_proj-prefix/src/efigenie_proj-build/_deps/embeddedioservices-src/HardwareAbstractions/Esp32Idf)
 file(GLOB_RECURSE EmbeddedIOServiceHardwareAbstraction_SRCS ${EmbeddedIOServicesHardwareAbstraction_Path}/src/*.cpp)
 file(GLOB_RECURSE EmbeddedIOServiceHardwareAbstraction_SRCS_Templates ${EmbeddedIOServicesHardwareAbstraction_Path}/src/*_template.cpp)
 IF(EmbeddedIOServiceHardwareAbstraction_SRCS_Templates)
         list(REMOVE_ITEM EmbeddedIOServiceHardwareAbstraction_SRCS ${EmbeddedIOServiceHardwareAbstraction_SRCS_Templates})
 ENDIF()
 
-set(ATTinyHardwareAbstraction_Path ${CMAKE_CURRENT_BINARY_DIR}/efigenie_proj-prefix/src/efigenie_proj-build/_deps/embeddedioservices-src/HardwareAbstractions/ATTiny427Expander)
 file(GLOB_RECURSE ATTinyHardwareAbstraction_SRCS ${ATTinyHardwareAbstraction_Path}/src/*.cpp)
 file(GLOB_RECURSE ATTinyHardwareAbstraction_SRCS_Templates ${ATTinyHardwareAbstraction_Path}/src/*_template.cpp)
 IF(ATTinyHardwareAbstraction_SRCS_Templates)
@@ -76,7 +34,4 @@ IF(ATTinyHardwareAbstraction_SRCS_Templates)
 ENDIF()
 
 target_sources(${COMPONENT_LIB} PUBLIC "${EmbeddedIOServiceHardwareAbstraction_SRCS}")
-target_include_directories(${COMPONENT_LIB} INTERFACE "${EmbeddedIOServicesHardwareAbstraction_Path}/include")
 target_sources(${COMPONENT_LIB} PUBLIC "${ATTinyHardwareAbstraction_SRCS}")
-target_include_directories(${COMPONENT_LIB} INTERFACE "${ATTinyHardwareAbstraction_Path}/include")
-target_include_directories(${COMPONENT_LIB} INTERFACE "${EFIGENIE_INSTALL_DIR}/include")

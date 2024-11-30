@@ -11,9 +11,7 @@
 #include "esp_log.h"
 #include "hal/gpio_hal.h"
 #include "uart_listen.h"
-#include "can_listen.h"
 #include "sock_uart.h"
-#include "sock_can.h"
 #include "mount.h"
 #include "http_server.h"
 #include <ATTiny_UPDI.h>
@@ -23,25 +21,25 @@
 #include "lwip/sys.h"
 #include <lwip/netdb.h>
 
-#include "EmbeddedIOServiceCollection.h"
-#include "AnalogService_Expander.h"
-#include "DigitalService_Expander.h"
-#include "ATTiny427ExpanderUpdateService.h"
-#include "AnalogService_ATTiny427Expander.h"
-#include "DigitalService_ATTiny427Expander.h"
-#include "Esp32IdfDigitalService.h"
-#include "Esp32IdfTimerService.h"
-#include "Esp32IdfAnalogService.h"
-#include "Esp32IdfPwmService.h"
-#include "Esp32IdfCANService.h"
-#include "Esp32IdfCommunicationService_Socket.h"
-#include "Esp32IdfCommunicationService_WebSocket.h"
 #include "ExpanderMain.h"
+#include "EmbeddedIOServiceCollection.h"
 #include "Variable.h"
 #include "CallBack.h"
 #include "Config.h"
 #include "CommunicationHandler_Prefix.h"
 #include "CommunicationHandlers/CommunicationHandler_EFIGenie.h"
+#include "AnalogService_Expander.h"
+#include "DigitalService_Expander.h"
+#include "ATTiny427ExpanderUpdateService.h"
+#include "AnalogService_ATTiny427Expander.h"
+#include "DigitalService_ATTiny427Expander.h"
+#include "Esp32IdfAnalogService.h"
+#include "Esp32IdfDigitalService.h"
+#include "Esp32IdfTimerService.h"
+#include "Esp32IdfPwmService.h"
+#include "Esp32IdfCANService.h"
+#include "Esp32IdfCommunicationService_Socket.h"
+#include "Esp32IdfCommunicationService_WebSocket.h"
 
 #define UPDI_UART_RX_PIN 15
 #define UPDI_UART_TX_PIN 14
@@ -268,41 +266,6 @@ extern "C"
         // };
 
         // xTaskCreate(sock_uart, "UPDI_sock_uart", 4096, &UPDI_sock_uart_config, 5, NULL);
-
-        // //install can listen service
-        // twai_general_config_t twai_general_config = {
-        //     .controller_id = 0,
-        //     .mode = TWAI_MODE_LISTEN_ONLY,
-        //     .tx_io = 9,
-        //     .rx_io = 8,
-        //     .clkout_io = TWAI_IO_UNUSED,
-        //     .bus_off_io = TWAI_IO_UNUSED,
-        //     .tx_queue_len = 1000,
-        //     .rx_queue_len = 1000,
-        //     .alerts_enabled = TWAI_ALERT_NONE,
-        //     .clkout_divider = 0,
-        //     .intr_flags = ESP_INTR_FLAG_LEVEL1
-        // };
-        // twai_timing_config_t twai_timing_config = TWAI_TIMING_CONFIG_500KBITS();
-        // twai_filter_config_t twai_filter_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
-        // twai_handle_t twai_handle;
-        // twai_driver_install_v2(&twai_general_config, &twai_timing_config, &twai_filter_config, &twai_handle);
-        // can_listen_config_t can_listen_config = {
-        //     .can_num = 0,
-        //     .can_handle = twai_handle
-        // };
-
-        // xTaskCreate(can_listen, "can_listen", 4096, &can_listen_config, 9, NULL);
-
-        // sock_can_config_t sock_can_config = {
-        //     .port = 7000,
-        //     .can_num = 0,
-        //     .can_handle = twai_handle,
-        //     .can_general_config = &twai_general_config,
-        //     .can_timing_config = &twai_timing_config,
-        //     .can_filter_config = &twai_filter_config
-        // };
-        // xTaskCreate(can_listen, "sock_can", 4096, &sock_can_config, 4, NULL);
         
         // vTaskDelay(pdMS_TO_TICKS(1000));
         // size_t attinyload_bytes = attinyload_end - attinyload_start;
@@ -324,7 +287,7 @@ extern "C"
 
         _embeddedIOServiceCollection.AnalogService = new AnalogService_Expander(_esp32AnalogService, _attinyAnalogService);
         _embeddedIOServiceCollection.DigitalService = new DigitalService_Expander(_esp32DigitalService, _attinyDigitalService);
-        _embeddedIOServiceCollection.TimerService = new Esp32IdfTimerService();
+        // _embeddedIOServiceCollection.TimerService = new Esp32IdfTimerService();
         const Esp32IdfCANServiceChannelConfig canconfigs[2] 
         {
             {
