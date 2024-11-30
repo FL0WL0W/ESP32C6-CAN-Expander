@@ -55,6 +55,53 @@ using namespace EmbeddedIOOperations;
 using namespace Esp32;
 using namespace EFIGenie;
 
+//read UPDI byte
+extern "C" bool UPDI_Read(uint8_t *val)
+{
+    uint8_t timeout = 0;
+    while(UPDI_rx_buffer_length < 1 && timeout++ < 100)
+        vTaskDelay(1);
+    if(timeout > 99){
+        return false;
+    }
+    // ESP_LOGE("UPDI", "read %x %d %d %d", UPDI_rx_buffer[UPDI_rx_buffer_index], UPDI_rx_buffer_index, UPDI_rx_buffer_length, timeout);
+    *val = UPDI_rx_buffer[UPDI_rx_buffer_index++];
+    UPDI_rx_buffer_length--;
+    UPDI_rx_buffer_index %= UPDI_RX_BUFFER_LENGTH;
+    return true;
+}
+
+//write UPDI byte
+extern "C" bool UPDI_Write(uint8_t val)
+{
+    if(!(uart_write_bytes(UPDI_uart_num, &val, 1) > 0))
+        return false;
+    uint8_t verify;
+    if(!UPDI_Read(&verify))
+        return false;
+    return verify == val;
+}
+
+//UPDI send Break
+extern "C" void UPDI_Break()
+{
+    uint32_t baudrate = 100000;
+
+    uart_wait_tx_done(UPDI_uart_num, pdMS_TO_TICKS(30)); //wait for all bytes to be flushed
+    uart_get_baudrate(UPDI_uart_num, &baudrate);
+    uart_set_baudrate(UPDI_uart_num, 300);
+    UPDI_Write(0);  // send a zero byte
+    uart_wait_tx_done(UPDI_uart_num, pdMS_TO_TICKS(30)); // wait for 0 byte to finish before restore normal baudrate
+    uart_set_baudrate(UPDI_uart_num, baudrate); // set baudrate back to normal after break is sent
+}
+
+extern "C" void UPDI_Idle()
+{
+    uint32_t baudrate = 100000;
+    uart_get_baudrate(UPDI_uart_num, &baudrate);
+    esp_rom_delay_us(15000000/baudrate);
+}
+
 extern "C"
 {
     void wifi_init_softap()

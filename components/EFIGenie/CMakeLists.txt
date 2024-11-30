@@ -3,7 +3,7 @@ set(EmbeddedIOServicesHardwareAbstraction_Path ${LIBRARIES_DIR}/EmbeddedIOServic
 set(ATTinyHardwareAbstraction_Path ${LIBRARIES_DIR}/EmbeddedIOServices/HardwareAbstractions/ATTiny427Expander)
 
 idf_component_register( SRCS "JustAFile.cpp"
-                        INCLUDE_DIRS "${EmbeddedIOServicesHardwareAbstraction_Path}/include" "${ATTinyHardwareAbstraction_Path}/include"
+                        INCLUDE_DIRS "."
                         PRIV_REQUIRES driver esp_http_server)
 
 include(FetchContent)
@@ -34,4 +34,6 @@ IF(ATTinyHardwareAbstraction_SRCS_Templates)
 ENDIF()
 
 target_sources(${COMPONENT_LIB} PUBLIC "${EmbeddedIOServiceHardwareAbstraction_SRCS}")
+target_include_directories(${COMPONENT_LIB} PUBLIC "${EmbeddedIOServicesHardwareAbstraction_Path}/include")
 target_sources(${COMPONENT_LIB} PUBLIC "${ATTinyHardwareAbstraction_SRCS}")
+target_include_directories(${COMPONENT_LIB} PUBLIC "${ATTinyHardwareAbstraction_Path}/include")

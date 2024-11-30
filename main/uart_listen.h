@@ -6,11 +6,10 @@
 #ifdef __cplusplus
 #include <stdio.h>
 #include <functional>
-#include <list>
 
 typedef std::function<void(const uint8_t *, size_t)> uart_callback_t;
-std::list<uart_callback_t>::iterator uart_listen_add_callback(uart_port_t uart_num, uart_callback_t callback);
-void uart_listen_remove_callback(uart_port_t uart_num, std::list<uart_callback_t>::iterator callback_iterator);
+uint32_t uart_listen_add_callback(uart_port_t uart_num, uart_callback_t callback);
+void uart_listen_remove_callback(uart_port_t uart_num, uint32_t callback_id);
 extern "C" {
 #endif
 
