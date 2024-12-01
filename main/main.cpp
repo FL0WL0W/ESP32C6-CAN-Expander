@@ -334,7 +334,7 @@ extern "C"
 
         _embeddedIOServiceCollection.AnalogService = new AnalogService_Expander(_esp32AnalogService, _attinyAnalogService);
         _embeddedIOServiceCollection.DigitalService = new DigitalService_Expander(_esp32DigitalService, _attinyDigitalService);
-        // _embeddedIOServiceCollection.TimerService = new Esp32IdfTimerService();
+        _embeddedIOServiceCollection.TimerService = new Esp32IdfTimerService();
         const Esp32IdfCANServiceChannelConfig canconfigs[2] 
         {
             {
