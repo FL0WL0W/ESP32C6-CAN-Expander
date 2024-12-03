@@ -30,9 +30,11 @@
 #include "CommunicationHandlers/CommunicationHandler_EFIGenie.h"
 #include "AnalogService_Expander.h"
 #include "DigitalService_Expander.h"
+#include "PwmService_Expander.h"
 #include "ATTiny427ExpanderUpdateService.h"
 #include "AnalogService_ATTiny427Expander.h"
 #include "DigitalService_ATTiny427Expander.h"
+#include "PwmService_ATTiny427Expander.h"
 #include "Esp32IdfAnalogService.h"
 #include "Esp32IdfDigitalService.h"
 #include "Esp32IdfTimerService.h"
@@ -240,11 +242,13 @@ extern "C"
 
     Esp32IdfAnalogService *_esp32AnalogService;
     Esp32IdfDigitalService *_esp32DigitalService;
+    Esp32IdfPwmService *_esp32PwmService;
 
     ATTiny427Expander_Registers _attinyRegisters(SPI);
     ATTiny427ExpanderUpdateService *_attinyUpdateService;
     AnalogService_ATTiny427Expander *_attinyAnalogService;
     DigitalService_ATTiny427Expander *_attinyDigitalService;
+    PwmService_ATTiny427Expander *_attinyPwmService;
 
     uint32_t transactionCount = 0;
     uint32_t prevTransactionCount = 0;
@@ -327,13 +331,16 @@ extern "C"
 
         _esp32AnalogService = new Esp32IdfAnalogService();
         _esp32DigitalService = new Esp32IdfDigitalService();
+        _esp32PwmService = new Esp32IdfPwmService();
 
         _attinyUpdateService = new ATTiny427ExpanderUpdateService(&_attinyRegisters);
         _attinyAnalogService = new AnalogService_ATTiny427Expander(&_attinyRegisters);
         _attinyDigitalService = new DigitalService_ATTiny427Expander(&_attinyRegisters);
+        _attinyPwmService = new PwmService_ATTiny427Expander(&_attinyRegisters);
 
         _embeddedIOServiceCollection.AnalogService = new AnalogService_Expander(_esp32AnalogService, _attinyAnalogService);
         _embeddedIOServiceCollection.DigitalService = new DigitalService_Expander(_esp32DigitalService, _attinyDigitalService);
+        _embeddedIOServiceCollection.PwmService = new PwmService_Expander(_esp32PwmService, _attinyPwmService, _attinyDigitalService);
         _embeddedIOServiceCollection.TimerService = new Esp32IdfTimerService();
         const Esp32IdfCANServiceChannelConfig canconfigs[2] 
         {
@@ -350,6 +357,19 @@ extern "C"
         };
         _embeddedIOServiceCollection.CANService = new Esp32IdfCANService(canconfigs);
         _communicationService = new Esp32IdfCommunicationService_WebSocket(server, "/EFIGenieCommunication");
+
+		const httpd_uri_t resetPost = {
+            .uri       = "/command/reset",
+			.method     = HTTP_POST,
+			.handler    = [](httpd_req_t *req) 
+			{
+                esp_restart();
+
+				return ESP_OK;
+			}
+		};
+
+        httpd_register_uri_handler(server, &resetPost);
 
         mount_spiffs("/SPIFFS");
         register_file_handler_http_server("/SPIFFS");
