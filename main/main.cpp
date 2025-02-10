@@ -345,11 +345,13 @@ extern "C"
         const Esp32IdfCANServiceChannelConfig canconfigs[2] 
         {
             {
+                .enabled = true,
                 .t_config = TWAI_TIMING_CONFIG_500KBITS(),
                 .f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL(),
                 .g_config = TWAI_GENERAL_CONFIG_DEFAULT_V2(0, (gpio_num_t)9, (gpio_num_t)8, TWAI_MODE_NORMAL)
             },
             {
+                .enabled = true,
                 .t_config = TWAI_TIMING_CONFIG_500KBITS(),
                 .f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL(),
                 .g_config = TWAI_GENERAL_CONFIG_DEFAULT_V2(1, (gpio_num_t)3, (gpio_num_t)2, TWAI_MODE_NORMAL)
