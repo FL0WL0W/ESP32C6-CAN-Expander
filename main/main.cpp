@@ -244,7 +244,7 @@ extern "C"
     Esp32IdfDigitalService *_esp32DigitalService;
     Esp32IdfPwmService *_esp32PwmService;
 
-    ATTiny427Expander_Registers _attinyRegisters(SPI);
+    ATTiny427Expander_Registers _attinyRegisters(ATTiny427Expander_Comm_SPI);
     ATTiny427ExpanderUpdateService *_attinyUpdateService;
     AnalogService_ATTiny427Expander *_attinyAnalogService;
     DigitalService_ATTiny427Expander *_attinyDigitalService;
