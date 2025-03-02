@@ -60,6 +60,18 @@ namespace EmbeddedIOServices
 					_esp32PwmService->InitPin(18, In, minFrequency);
 				}
 				break;
+			case 6:
+				if(direction == Out)
+				{
+					_attinyDigitalService->InitPassthrough(14,5,false, true);
+					_esp32PwmService->InitPin(19, Out, minFrequency);
+				}
+				else
+				{
+					_attinyDigitalService->InitPassthrough(5,14,false);
+					_esp32PwmService->InitPin(19, In, minFrequency);
+				}
+				break;
 			case 10:
 				if(direction == Out)
 				{
@@ -128,7 +140,7 @@ namespace EmbeddedIOServices
 				_esp32PwmService->WritePin(18, { value.Period, value.Period - value.PulseWidth });
 				break;
 			case 6:
-				_esp32PwmService->WritePin(19, { value.Period, value.Period - value.PulseWidth });
+				_esp32PwmService->WritePin(19, { value.Period, value.PulseWidth });
 				break;
 			case 7:
 				_esp32PwmService->WritePin(20, { value.Period, value.Period - value.PulseWidth });
