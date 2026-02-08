@@ -5,9 +5,10 @@ using namespace Esp32;
 #ifdef PWMSERVICE_EXPANDER_H
 namespace EmbeddedIOServices
 {
-    PwmService_Expander::PwmService_Expander(Esp32IdfPwmService *esp32PwmService, PwmService_ATTiny427Expander *attinyPwmService, DigitalService_ATTiny427Expander *attinyDigitalService) :
+    PwmService_Expander::PwmService_Expander(Esp32IdfPwmService *esp32PwmService, PwmService_ATTiny427Expander *attinyPwmService, ATTiny427_PassthroughService *attinyPassthroughService, DigitalService_ATTiny427Expander *attinyDigitalService) :
 		_esp32PwmService(esp32PwmService),
 		_attinyPwmService(attinyPwmService),
+		_attinyPassthroughService(attinyPassthroughService),
 		_attinyDigitalService(attinyDigitalService)
     {
     }
@@ -51,24 +52,24 @@ namespace EmbeddedIOServices
 			case 5:
 				if(direction == Out)
 				{
-					_attinyDigitalService->InitPassthrough(12,7,true);
+					_attinyPassthroughService->InitPassthrough(12,7,true);
 					_esp32PwmService->InitPin(18, Out, minFrequency);
 				}
 				else
 				{
-					_attinyDigitalService->InitPassthrough(7,12,false);
+					_attinyPassthroughService->InitPassthrough(7,12,false);
 					_esp32PwmService->InitPin(18, In, minFrequency);
 				}
 				break;
 			case 6:
 				if(direction == Out)
 				{
-					_attinyDigitalService->InitPassthrough(14,5,false, true);
+					_attinyPassthroughService->InitPassthrough(14,5,false, true);
 					_esp32PwmService->InitPin(19, Out, minFrequency);
 				}
 				else
 				{
-					_attinyDigitalService->InitPassthrough(5,14,false);
+					_attinyPassthroughService->InitPassthrough(5,14,false);
 					_esp32PwmService->InitPin(19, In, minFrequency);
 				}
 				break;

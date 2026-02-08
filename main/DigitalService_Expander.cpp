@@ -5,9 +5,10 @@ using namespace Esp32;
 #ifdef DIGITALSERVICE_EXPANDER_H
 namespace EmbeddedIOServices
 {
-    DigitalService_Expander::DigitalService_Expander(Esp32IdfDigitalService *esp32DigitalService, DigitalService_ATTiny427Expander *attinyDigitalService) :
+    DigitalService_Expander::DigitalService_Expander(Esp32IdfDigitalService *esp32DigitalService, DigitalService_ATTiny427Expander *attinyDigitalService, ATTiny427_PassthroughService *attinyPassthroughService) :
 		_esp32DigitalService(esp32DigitalService),
-		_attinyDigitalService(attinyDigitalService)
+		_attinyDigitalService(attinyDigitalService),
+		_attinyPassthroughService(attinyPassthroughService)
     {
     }
 	
@@ -32,23 +33,23 @@ namespace EmbeddedIOServices
             case 5:
 				_esp32DigitalService->InitPin(18, direction);
 				if(In5 == (direction == In))
-					_attinyDigitalService->InitPassthrough(7, 12, false);
+					_attinyPassthroughService->InitPassthrough(7, 12, false);
 				else
-					_attinyDigitalService->InitPassthrough(12, 7, true);
+					_attinyPassthroughService->InitPassthrough(12, 7, true);
 				break;
             case 6:
 				_esp32DigitalService->InitPin(19, direction);
 				if(In6 == (direction == In))
-					_attinyDigitalService->InitPassthrough(5, 14, false);
+					_attinyPassthroughService->InitPassthrough(5, 14, false);
 				else
-					_attinyDigitalService->InitPassthrough(14, 5, true);
+					_attinyPassthroughService->InitPassthrough(14, 5, true);
 				break;
             case 7:
 				_esp32DigitalService->InitPin(20, direction);
 				if(In7 == (direction == In))
-					_attinyDigitalService->InitPassthrough(18, 15, false);
+					_attinyPassthroughService->InitPassthrough(18, 15, false);
 				else
-					_attinyDigitalService->InitPassthrough(15, 18, true);
+					_attinyPassthroughService->InitPassthrough(15, 18, true);
 				break;
             case 10:
 				if(direction == Out)
@@ -74,9 +75,9 @@ namespace EmbeddedIOServices
             case 16:
 				_esp32DigitalService->InitPin(21, direction);
 				if(In16 == (direction == In))
-					_attinyDigitalService->InitPassthrough(17, 20., false);
+					_attinyPassthroughService->InitPassthrough(17, 20., false);
 				else
-					_attinyDigitalService->InitPassthrough(20, 17, true);
+					_attinyPassthroughService->InitPassthrough(20, 17, true);
 				break;
         }
 	}

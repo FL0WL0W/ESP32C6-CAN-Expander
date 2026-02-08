@@ -31,7 +31,7 @@
 #include "AnalogService_Expander.h"
 #include "DigitalService_Expander.h"
 #include "PwmService_Expander.h"
-#include "ATTiny427ExpanderUpdateService.h"
+#include "ATTiny427_ExpanderService.h"
 #include "AnalogService_ATTiny427Expander.h"
 #include "DigitalService_ATTiny427Expander.h"
 #include "PwmService_ATTiny427Expander.h"
@@ -244,8 +244,9 @@ extern "C"
     Esp32IdfDigitalService *_esp32DigitalService;
     Esp32IdfPwmService *_esp32PwmService;
 
-    ATTiny427Expander_Registers _attinyRegisters(ATTiny427Expander_Comm_SPI);
-    ATTiny427ExpanderUpdateService *_attinyUpdateService;
+    ATTiny427_ExpanderService *_attinyExpanderService;
+    ATTiny427_PassthroughService *_attinyPassthroughService;
+    ATTiny427_EVSYSService *_attinyEVSYSService;
     AnalogService_ATTiny427Expander *_attinyAnalogService;
     DigitalService_ATTiny427Expander *_attinyDigitalService;
     PwmService_ATTiny427Expander *_attinyPwmService;
@@ -258,10 +259,8 @@ extern "C"
 
     void IRAM_ATTR attinyTransactionCB(spi_transaction_t *t)
     {
-        _attinyUpdateService->Receive(inBuffer, t->rxlength / 8);
-        _attinyDigitalService->Update();
-
-        t->length = _attinyUpdateService->Transmit(outBuffer) * 8;
+        _attinyExpanderService->Receive(inBuffer, t->rxlength / 8);
+        t->length = _attinyExpanderService->Transmit(outBuffer) * 8;
         t->rxlength = 0;
         spi_device_queue_trans(attinySPI, t, 0);
         transactionCount++;
@@ -277,7 +276,7 @@ extern "C"
         }
         ESP_ERROR_CHECK(ret);
 
-        //initialize net
+        //initialize netlibs/EmbeddedIOServices/HardwareAbstractions/ATTiny427Expander/src/AnalogService_ATTiny427Expander.cpp libs/EmbeddedIOServices/HardwareAbstractions/ATTiny427Expander/src/ATTiny427_EVSYSService.cpp libs/EmbeddedIOServices/HardwareAbstractions/ATTiny427Expander/src/ATTiny427_ExpanderService.cpp libs/EmbeddedIOServices/HardwareAbstractions/ATTiny427Expander/src/ATTiny427_PassthroughService.cpp libs/EmbeddedIOServices/HardwareAbstractions/ATTiny427Expander/src/DigitalService_ATTiny427Expander.cpp libs/EmbeddedIOServices/HardwareAbstractions/ATTiny427Expander/src/PwmService_ATTiny427Expander.cpp
         ESP_ERROR_CHECK(esp_netif_init());
         ESP_ERROR_CHECK(esp_event_loop_create_default());
 
@@ -326,22 +325,25 @@ extern "C"
         
         // xTaskCreate(echo_task, "echo_task", 2048, NULL, 10, NULL);
 
-        // mount_sd("/SD");
-        start_http_server();
-
         _esp32AnalogService = new Esp32IdfAnalogService();
         _esp32DigitalService = new Esp32IdfDigitalService();
         _esp32PwmService = new Esp32IdfPwmService();
 
-        _attinyUpdateService = new ATTiny427ExpanderUpdateService(&_attinyRegisters);
-        _attinyAnalogService = new AnalogService_ATTiny427Expander(&_attinyRegisters);
-        _attinyDigitalService = new DigitalService_ATTiny427Expander(&_attinyRegisters);
-        _attinyPwmService = new PwmService_ATTiny427Expander(&_attinyRegisters);
+        _attinyExpanderService = new ATTiny427_ExpanderService(ATTiny427_ExpanderComm_SPI);
+        _attinyEVSYSService = new ATTiny427_EVSYSService(_attinyExpanderService);
+        _attinyPassthroughService = new ATTiny427_PassthroughService(_attinyExpanderService, _attinyEVSYSService);
+        _attinyAnalogService = new AnalogService_ATTiny427Expander(_attinyExpanderService, 0x0F);
+        _attinyDigitalService = new DigitalService_ATTiny427Expander(_attinyExpanderService);
+        _attinyPwmService = new PwmService_ATTiny427Expander(_attinyExpanderService);
 
         _embeddedIOServiceCollection.AnalogService = new AnalogService_Expander(_esp32AnalogService, _attinyAnalogService);
-        _embeddedIOServiceCollection.DigitalService = new DigitalService_Expander(_esp32DigitalService, _attinyDigitalService);
-        _embeddedIOServiceCollection.PwmService = new PwmService_Expander(_esp32PwmService, _attinyPwmService, _attinyDigitalService);
+        _embeddedIOServiceCollection.DigitalService = new DigitalService_Expander(_esp32DigitalService, _attinyDigitalService, _attinyPassthroughService);
+        _embeddedIOServiceCollection.PwmService = new PwmService_Expander(_esp32PwmService, _attinyPwmService, _attinyPassthroughService, _attinyDigitalService);
         _embeddedIOServiceCollection.TimerService = new Esp32IdfTimerService();
+
+        // mount_sd("/SD");
+        start_http_server();
+
         const Esp32IdfCANServiceChannelConfig canconfigs[2] 
         {
             {
@@ -398,15 +400,15 @@ extern "C"
         //Initialize the SPI bus
         ret = spi_bus_initialize(SPI2_HOST, &attinybuscfg, SPI_DMA_CH_AUTO);
         ESP_ERROR_CHECK(ret);
-        //Attach the LCD to the SPI bus
         ret = spi_bus_add_device(SPI2_HOST, &attinydevcfg, &attinySPI);
         ESP_ERROR_CHECK(ret);
 
         spi_transaction_t t;
         memset(&t, 0, sizeof(t));
+        std::memset(outBuffer, 0, 20);
         t.rx_buffer = inBuffer;
         t.tx_buffer = outBuffer;
-        t.length = t.rxlength = 0;
+        t.rxlength = t.length = 0;
         attinyTransactionCB(&t);
 
         Setup();
