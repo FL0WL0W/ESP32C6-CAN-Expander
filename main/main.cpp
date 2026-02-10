@@ -260,8 +260,7 @@ extern "C"
     void IRAM_ATTR attinyTransactionCB(spi_transaction_t *t)
     {
         _attinyExpanderService->Receive(inBuffer, t->rxlength / 8);
-        t->length = _attinyExpanderService->Transmit(outBuffer) * 8;
-        t->rxlength = 0;
+        t->rxlength = t->length = _attinyExpanderService->Transmit(outBuffer) * 8;
         spi_device_queue_trans(attinySPI, t, 0);
         transactionCount++;
     }
@@ -330,11 +329,11 @@ extern "C"
         _esp32PwmService = new Esp32IdfPwmService();
 
         _attinyExpanderService = new ATTiny427_ExpanderService(ATTiny427_ExpanderComm_SPI);
+        _attinyDigitalService = new DigitalService_ATTiny427Expander(_attinyExpanderService);
+        _attinyAnalogService = new AnalogService_ATTiny427Expander(_attinyExpanderService, 0x0F);
+        _attinyPwmService = new PwmService_ATTiny427Expander(_attinyExpanderService);
         _attinyEVSYSService = new ATTiny427_EVSYSService(_attinyExpanderService);
         _attinyPassthroughService = new ATTiny427_PassthroughService(_attinyExpanderService, _attinyEVSYSService);
-        _attinyAnalogService = new AnalogService_ATTiny427Expander(_attinyExpanderService, 0x0F);
-        _attinyDigitalService = new DigitalService_ATTiny427Expander(_attinyExpanderService);
-        _attinyPwmService = new PwmService_ATTiny427Expander(_attinyExpanderService);
 
         _embeddedIOServiceCollection.AnalogService = new AnalogService_Expander(_esp32AnalogService, _attinyAnalogService);
         _embeddedIOServiceCollection.DigitalService = new DigitalService_Expander(_esp32DigitalService, _attinyDigitalService, _attinyPassthroughService);
