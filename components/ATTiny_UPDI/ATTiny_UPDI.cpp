@@ -6,9 +6,12 @@
 #include "hal/gpio_hal.h"
 #include "esp_log.h"
 #include "UPDI.h"
+#include "ICommunicationService.h"
 
 #define UPDI_KEYNVMPROG 0x4E564D50726F6720
 #define UPDI_KEYNVMERASE 0x4E564D4572617365
+
+using namespace EmbeddedIOServices;
 
 void _UPDI_error_check_failed(const char *file, int line, const char *function, const char *expression)
 {
@@ -25,11 +28,15 @@ void _UPDI_error_check_failed(const char *file, int line, const char *function, 
     } while(0)
 
 uart_port_t UPDI_uart_num;
-bool UPDI_callback_registered;
-uint32_t UPDI_uart_callback_id;
+ICommunicationService *_updiCommService = nullptr;
+communication_receive_callback_id_t _updiCallbackId = 0;
 uint8_t UPDI_rx_buffer[UPDI_RX_BUFFER_LENGTH];
 volatile size_t UPDI_rx_buffer_index = 0;
 volatile size_t UPDI_rx_buffer_length = 0;
+
+extern "C" {
+    extern ICommunicationService *_uartCommServices[UART_NUM_MAX];
+}
 
 bool ack_disabled = false;
 extern "C" bool UPDI_ReadAck()
@@ -72,16 +79,20 @@ bool UPDI_EnableAck()
     return true;
 }
 
-extern void uart_listen_remove_callback(uart_port_t uart_num, uint32_t callback_iterator);
-extern uint32_t uart_listen_add_callback(uart_port_t uart_num, std::function<void(const uint8_t *, size_t)> callback);
-
 bool UPDI_Enable(uart_port_t uart_num, gpio_num_t tx_pin, gpio_num_t rx_pin)
 {
-    // Setup UPDI Callback
-    if(UPDI_callback_registered) {
-        uart_listen_remove_callback(uart_num, UPDI_uart_callback_id);
+    // Get communication service from array
+    if(uart_num >= UART_NUM_MAX || _uartCommServices[uart_num] == nullptr)
+        return false;
+    
+    // Setup UPDI Communication Service
+    if(_updiCommService != nullptr) {
+        _updiCommService->UnRegisterReceiveCallBack(_updiCallbackId);
     }
-    UPDI_uart_callback_id = uart_listen_add_callback(uart_num, [](const uint8_t *rx_buffer, size_t len) {
+    
+    _updiCommService = _uartCommServices[uart_num];
+    _updiCallbackId = _updiCommService->RegisterReceiveCallBack([](communication_send_callback_t send, const void *rx_buffer_ptr, size_t len) -> size_t {
+        const uint8_t *rx_buffer = (const uint8_t *)rx_buffer_ptr;
         size_t index = 0;
         while(len > 0) {
             UPDI_rx_buffer[(UPDI_rx_buffer_index + UPDI_rx_buffer_length) % UPDI_RX_BUFFER_LENGTH] = rx_buffer[index];
@@ -89,10 +100,10 @@ bool UPDI_Enable(uart_port_t uart_num, gpio_num_t tx_pin, gpio_num_t rx_pin)
             len--;
             index++;
         }
+        return index;
     });
     UPDI_rx_buffer_index = 0;
     UPDI_rx_buffer_length = 0;
-    UPDI_callback_registered = true;
     UPDI_uart_num = uart_num;
 
     // Setup UPDI UART and send 500ns pulse

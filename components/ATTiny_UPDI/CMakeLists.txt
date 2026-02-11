@@ -17,6 +17,16 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(UPDI)
 
+FetchContent_Declare(
+    EmbeddedIOServices
+    GIT_REPOSITORY https://github.com/FL0WL0W/EmbeddedIOServices
+    GIT_TAG        main
+    GIT_PROGRESS   TRUE
+    GIT_SHALLOW    TRUE
+    SOURCE_DIR  ${LIBRARIES_DIR}/EmbeddedIOServices
+)
+
+FetchContent_MakeAvailable(EmbeddedIOServices)
 
 file(GLOB_RECURSE UPDI_SRCS ${UPDI_Path}/src/*.c)
 file(GLOB_RECURSE UPDI_SRCS_Templates ${UPDI_Path}/src/*_template.c)
@@ -26,3 +36,4 @@ ENDIF()
 
 target_sources(${COMPONENT_LIB} PUBLIC "${UPDI_SRCS}")
 target_include_directories(${COMPONENT_LIB} PUBLIC "${UPDI_Path}/include")
+target_link_libraries(${COMPONENT_LIB} PUBLIC EmbeddedIOServices)

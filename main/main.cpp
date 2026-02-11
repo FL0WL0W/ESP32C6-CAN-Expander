@@ -10,9 +10,8 @@
 #include "sdkconfig.h"
 #include "esp_log.h"
 #include "hal/gpio_hal.h"
-#include "uart_listen.h"
-#include "sock_uart.h"
 #include "mount.h"
+#include "Esp32IdfCommunicationService_UART.h"
 #include "http_server.h"
 #include <ATTiny_UPDI.h>
 
@@ -57,6 +56,8 @@ using namespace EmbeddedIOOperations;
 using namespace Esp32;
 using namespace EFIGenie;
 
+ICommunicationService *_uartCommServices[UART_NUM_MAX] = {nullptr};
+
 //read UPDI byte
 extern "C" bool UPDI_Read(uint8_t *val)
 {
@@ -76,8 +77,9 @@ extern "C" bool UPDI_Read(uint8_t *val)
 //write UPDI byte
 extern "C" bool UPDI_Write(uint8_t val)
 {
-    if(!(uart_write_bytes(UPDI_uart_num, &val, 1) > 0))
+    if(UPDI_uart_num >= UART_NUM_MAX || _uartCommServices[UPDI_uart_num] == nullptr)
         return false;
+    _uartCommServices[UPDI_uart_num]->Send(&val, 1);
     uint8_t verify;
     if(!UPDI_Read(&verify))
         return false;
@@ -282,16 +284,10 @@ extern "C"
         //initialize wifi
         wifi_init_softap();
 
-        //install uart listen services
-        uart_listen_config_t uart_listen_config[UART_NUM_MAX];
-        char uart_listen_name[UART_NUM_MAX][16];
+        //install uart communication services
         for(uint8_t i = UART_NUM_0; i < UART_NUM_MAX; i++)
         {
-            uart_listen_config[i].uart_num = (uart_port_t)i;
-            uart_listen_config[i].rx_buffer_size = 2048;
-            uart_listen_config[i].tx_buffer_size = 0;
-            sprintf(uart_listen_name[i], "uart_listen_%d", i);
-            xTaskCreate(uart_listen, uart_listen_name[i], 4096, &uart_listen_config[i], 10, NULL);
+            _uartCommServices[i] = new Esp32IdfCommunicationService_UART((uart_port_t)i, 2048);
         }
 
         // uart_config_t UPDI_uart_config = {
@@ -302,19 +298,6 @@ extern "C"
         //     .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
         //     .source_clk = UART_SCLK_DEFAULT,
         // };
-
-        // sock_uart_config_t UPDI_sock_uart_config = 
-        // {
-        //     .port = 8001,
-        //     .sock_rx_buffer_size = 1440,
-        //     .uart_num = (uart_port_t)1,
-        //     .uart_config = &UPDI_uart_config,
-        //     .tx_pin = (gpio_num_t)UPDI_UART_TX_PIN,
-        //     .rx_pin = (gpio_num_t)UPDI_UART_RX_PIN,
-        //     .sock_rx_hook = UPDI_RX_Hook
-        // };
-
-        // xTaskCreate(sock_uart, "UPDI_sock_uart", 4096, &UPDI_sock_uart_config, 5, NULL);
         
         // vTaskDelay(pdMS_TO_TICKS(1000));
         // size_t attinyload_bytes = attinyload_end - attinyload_start;
