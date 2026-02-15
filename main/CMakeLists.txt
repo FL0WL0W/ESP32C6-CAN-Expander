@@ -4,4 +4,4 @@ set(SRCS ${USER_CSRCS} ${USER_CXXSRCS})
 
 idf_component_register(SRCS "${SRCS}" 
                        INCLUDE_DIRS "."
-                       PRIV_REQUIRES EFIGenie ATTiny_UPDI esp_driver_gpio esp_driver_gptimer esp_adc esp_driver_spi esp_driver_uart esp_ringbuf spiffs esp_http_server fatfs esp_wifi nvs_flash driver)
+                       PRIV_REQUIRES EFIGenie ATTiny_UPDI esp_driver_gpio esp_driver_gptimer esp_adc esp_driver_spi esp_driver_uart esp_ringbuf spiffs esp_http_server fatfs esp_wifi nvs_flash driver app_update)

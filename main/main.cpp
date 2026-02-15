@@ -10,6 +10,9 @@
 #include "sdkconfig.h"
 #include "esp_log.h"
 #include "hal/gpio_hal.h"
+#include "esp_mac.h"
+#include "esp_ota_ops.h"
+#include "esp_partition.h"
 #include "mount.h"
 #include "Esp32IdfCommunicationService_UART.h"
 #include "http_server.h"
@@ -107,7 +110,56 @@ extern "C" void UPDI_Idle()
 }
 
 extern "C"
-{
+{   
+    #define NVS_WIFI_NAMESPACE "wifi_config"
+    #define NVS_WIFI_SSID_KEY "ssid"
+    #define NVS_WIFI_PASSWORD_KEY "password"
+    #define NVS_WIFI_AUTHMODE_KEY "authmode"
+    // Load WiFi config from NVS, fallback to defaults if not found
+    static void load_wifi_config_from_nvs(wifi_config_t *wifi_config)
+    {
+        nvs_handle_t nvs_handle;    
+        esp_err_t err = nvs_open(NVS_WIFI_NAMESPACE, NVS_READWRITE, &nvs_handle);
+        
+        size_t ssid_len = sizeof(wifi_config->ap.ssid);
+        size_t password_len = sizeof(wifi_config->ap.password);
+
+        if (err == ESP_OK) {
+            // Try to read SSID
+            if (nvs_get_str(nvs_handle, NVS_WIFI_SSID_KEY, (char *)wifi_config->ap.ssid, &ssid_len) != ESP_OK) {
+                // Use default SSID with unique chip ID (MAC address)
+                uint8_t mac[6];
+                esp_read_mac(mac, ESP_MAC_EFUSE_FACTORY);
+                snprintf((char *)wifi_config->ap.ssid, sizeof(wifi_config->ap.ssid), 
+                         "EFIGenie-Expander-%02X%02X%02X", mac[3], mac[4], mac[5]);
+                nvs_set_str(nvs_handle, NVS_WIFI_SSID_KEY, (char *)wifi_config->ap.ssid);
+                nvs_commit(nvs_handle);
+            }
+            
+            // Try to read password
+            nvs_get_str(nvs_handle, NVS_WIFI_PASSWORD_KEY, (char *)wifi_config->ap.password, &password_len);
+            
+            // Try to read authmode
+            if (nvs_get_u8(nvs_handle, NVS_WIFI_AUTHMODE_KEY, (uint8_t *)&wifi_config->ap.authmode) != ESP_OK) {
+                // Use default authmode (set below)
+                wifi_config->ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
+            }
+            
+            nvs_close(nvs_handle);
+        } else {
+            // NVS not available, use defaults
+            uint8_t mac[6];
+            esp_read_mac(mac, ESP_MAC_EFUSE_FACTORY);
+            snprintf((char *)wifi_config->ap.ssid, sizeof(wifi_config->ap.ssid), 
+                     "EFIGenie-Expander-%02X%02X%02X", mac[3], mac[4], mac[5]);
+            wifi_config->ap.authmode = WIFI_AUTH_OPEN;
+        }
+
+        wifi_config->ap.authmode = (strlen((char *)wifi_config->ap.password) > 0) ? wifi_config->ap.authmode : WIFI_AUTH_OPEN;
+        
+        wifi_config->ap.ssid_len = strlen((char *)wifi_config->ap.ssid);
+        wifi_config->ap.max_connection = 5;
+    }
     void wifi_init_softap()
     {
         esp_netif_create_default_wifi_ap();
@@ -116,19 +168,10 @@ extern "C"
         ESP_ERROR_CHECK(esp_wifi_init(&cfg));
         ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
 
-        wifi_config_t wifi_config = {
-            .ap = {
-                .ssid = "EFIGenie-Expander",
-                // .password = EXAMPLE_ESP_WIFI_PASS,
-                .ssid_len = strlen("EFIGenie-Expander"),
-                .authmode = WIFI_AUTH_WPA2_PSK,
-                .max_connection = 5,
-                .pmf_cfg = { .required = true }
-            },
-        };
-        if (strlen((char *)wifi_config.ap.password) == 0) {
-            wifi_config.ap.authmode = WIFI_AUTH_OPEN;
-        }
+        wifi_config_t wifi_config;
+        memset(&wifi_config, 0, sizeof(wifi_config_t));
+        load_wifi_config_from_nvs(&wifi_config);
+        wifi_config.ap.pmf_cfg.required = true;
 
         ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
         ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
@@ -356,6 +399,34 @@ extern "C"
 		};
 
         httpd_register_uri_handler(server, &resetPost);
+
+		const httpd_uri_t resetToOTAUpdaterPost = {
+            .uri       = "/command/resetToOTAUpdater",
+			.method     = HTTP_POST,
+			.handler    = [](httpd_req_t *req) 
+			{
+                // set the boot partition to factory and restart
+                const esp_partition_t *factory_partition = esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_APP_FACTORY, NULL);
+                if (factory_partition != NULL) {
+                    esp_err_t err = esp_ota_set_boot_partition(factory_partition);
+                    if (err != ESP_OK) {
+                        ESP_LOGE("OTA", "Failed to set boot partition: %s", esp_err_to_name(err));
+                        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Failed to set boot partition");
+                    } else {
+                        ESP_LOGI("OTA", "Boot partition set to factory. Restarting...");
+                        httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+                        esp_restart();
+                    }
+                } else {
+                    ESP_LOGE("OTA", "Factory partition not found!");
+                    httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "Factory partition not found");
+                }
+
+				return ESP_OK;
+			}
+		};
+
+        httpd_register_uri_handler(server, &resetToOTAUpdaterPost);
 
         mount_spiffs("/SPIFFS");
         register_file_handler_http_server("/SPIFFS");

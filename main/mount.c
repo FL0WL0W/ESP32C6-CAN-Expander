@@ -23,6 +23,7 @@
 #include "driver/sdspi_host.h"
 #include "driver/spi_common.h"
 #include "sdmmc_cmd.h"
+#include "esp_partition.h"
 #include "mount.h"
 
 static const char *TAG = "MOUNT";
@@ -83,13 +84,26 @@ esp_err_t mount_sd(const char* base_path)
 esp_err_t mount_spiffs(const char* base_path)
 {
     ESP_LOGI(TAG, "Initializing SPIFFS");
+    const char* partition_label = "storage";
 
     esp_vfs_spiffs_conf_t conf = {
         .base_path = base_path,
-        .partition_label = NULL,
+        .partition_label = partition_label,
         .max_files = 5,   // This sets the maximum number of files that can be open at the same time
         .format_if_mount_failed = true
     };
+    
+        // First, try to find and erase the SPIFFS partition if something's wrong
+    const esp_partition_t *part = esp_partition_find_first(
+        ESP_PARTITION_TYPE_DATA, 
+        ESP_PARTITION_SUBTYPE_DATA_SPIFFS, 
+        partition_label
+    );
+    
+    if (part != NULL) {
+        ESP_LOGI(TAG, "Partition '%s' - Address: 0x%x, Length: 0x%x (%u bytes)", 
+                    part->label, part->address, part->size, part->size);
+    }
 
     esp_err_t ret = esp_vfs_spiffs_register(&conf);
     if (ret != ESP_OK) {
@@ -104,7 +118,7 @@ esp_err_t mount_spiffs(const char* base_path)
     }
 
     size_t total = 0, used = 0;
-    ret = esp_spiffs_info(NULL, &total, &used);
+    ret = esp_spiffs_info(partition_label, &total, &used);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "Failed to get SPIFFS partition information (%s)", esp_err_to_name(ret));
         return ret;
