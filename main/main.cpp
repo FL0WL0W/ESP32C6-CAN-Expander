@@ -415,6 +415,7 @@ extern "C"
                     } else {
                         ESP_LOGI("OTA", "Boot partition set to factory. Restarting...");
                         httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+                        vTaskDelay(pdMS_TO_TICKS(100));
                         esp_restart();
                     }
                 } else {
