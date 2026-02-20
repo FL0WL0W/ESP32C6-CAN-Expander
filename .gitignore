@@ -3,3 +3,4 @@ libs/*
 .vscode/*
 .devcontainer/*
 debug.log
+.cmake/*
