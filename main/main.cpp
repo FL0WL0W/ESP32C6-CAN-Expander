@@ -10,6 +10,7 @@
 #include "sdkconfig.h"
 #include "esp_log.h"
 #include "hal/gpio_hal.h"
+#include "hal/wdt_hal.h"
 #include "esp_mac.h"
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
@@ -310,6 +311,8 @@ extern "C"
         transactionCount++;
     }
 
+    static wdt_hal_context_t rtc_wdt_ctx = RWDT_HAL_CONTEXT_DEFAULT();
+
     void app_main()
     {
         //Initialize NVS
@@ -467,10 +470,16 @@ extern "C"
 
         Setup();
         while (1)
-        {          
+        {
             vTaskDelay(1);
 
             Loop();
+
+            if (wdt_hal_is_enabled(&rtc_wdt_ctx)) {
+                wdt_hal_write_protect_disable(&rtc_wdt_ctx);
+                wdt_hal_feed(&rtc_wdt_ctx);
+                wdt_hal_write_protect_enable(&rtc_wdt_ctx);
+            }
         }
     }
 }
