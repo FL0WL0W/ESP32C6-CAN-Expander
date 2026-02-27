@@ -11,13 +11,12 @@
 #include "esp_log.h"
 
 #include "esp_vfs.h"
-#include "esp_spiffs.h"
 
 #define UPDI_UART_RX_PIN (gpio_num_t)15
 #define UPDI_UART_TX_PIN (gpio_num_t)14
 
 /* Max length a file path can have on storage */
-#define FILE_PATH_MAX (ESP_VFS_PATH_MAX + CONFIG_SPIFFS_OBJ_NAME_LEN)
+#define FILE_PATH_MAX (ESP_VFS_PATH_MAX + 1024)
 
 /* Max size of an individual file. Make sure this
  * value is same as that set in upload_script.html */
@@ -123,12 +122,12 @@ static esp_err_t download_get_handler(httpd_req_t *req)
     }
 
     set_content_type_from_file(req, filename);
-    if (stat(filepath, &file_stat) == -1) {
+    if (stat(filepath, &file_stat) != 0) {
         httpd_resp_set_hdr(req, "Content-Encoding", "gzip");
         strcat(filepath, ".gz");
     }
 
-    if (stat(filepath, &file_stat) == -1) {
+    if (stat(filepath, &file_stat) != 0) {
         ESP_LOGE(TAG, "Failed to stat file : %s", filepath);
         /* Respond with 404 Not Found */
         httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "File does not exist\r\n");
@@ -301,7 +300,7 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    fd = fopen(filepath, "w");
+    fd = fopen(filepath, "wb");
     if (!fd) {
         ESP_LOGE(TAG, "Failed to create file : %s", filepath);
         /* Respond with 500 Internal Server Error */
@@ -391,7 +390,7 @@ static esp_err_t delete_post_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
-    if (stat(filepath, &file_stat) == -1) {
+    if (stat(filepath, &file_stat) != 0) {
         ESP_LOGE(TAG, "File does not exist : %s", filename);
         /* Respond with 400 Bad Request */
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "File does not exist\r\n");

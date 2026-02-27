@@ -4,6 +4,7 @@
 #include "nvs_flash.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/timers.h"
 #include "driver/uart.h"
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
@@ -206,7 +207,7 @@ extern "C"
 
     bool loadConfig()
     {
-        const char * configPath = "/SPIFFS/config.bin";
+        const char * configPath = "/mm/config.bin";
         FILE *fd = NULL;
         struct stat file_stat;
 
@@ -312,6 +313,77 @@ extern "C"
     }
 
     static wdt_hal_context_t rtc_wdt_ctx = RWDT_HAL_CONTEXT_DEFAULT();
+    
+    TaskHandle_t loop_task_handle = NULL;
+    UBaseType_t loop_original_priority = 0;
+
+    void IRAM_ATTR priority_restore_timer_callback()
+    {
+        vTaskPrioritySet(loop_task_handle, loop_original_priority);
+    }
+
+    void IRAM_ATTR loop(void *parameters)
+    {
+        // Store the app_main task handle and priority
+        loop_task_handle = xTaskGetCurrentTaskHandle();
+        loop_original_priority = uxTaskPriorityGet(loop_task_handle);
+
+        const tick_t timerTicksPerSecond = _embeddedIOServiceCollection.TimerService->GetTicksPerSecond();
+        Task *priority_restore_task = new Task(priority_restore_timer_callback, false);
+        tick_t averageTick = timerTicksPerSecond / 1000;
+        tick_t minTick = averageTick * 100;
+        tick_t maxTick = 0;
+        tick_t lastTick = _embeddedIOServiceCollection.TimerService->GetTick();
+        int loopcnt = 0;
+        while (1)
+        {
+            // Start timer to restore priority after 1 tick, then set app_main to the lowest priority and yield
+            // _embeddedIOServiceCollection.TimerService->ScheduleTask(priority_restore_task, _embeddedIOServiceCollection.TimerService->GetTick() + timerTicksPerSecond / 1000);
+            // vTaskPrioritySet(loop_task_handle, 0);
+            // taskYIELD();
+            vTaskDelay(1);
+
+            Loop();
+
+            if (wdt_hal_is_enabled(&rtc_wdt_ctx)) {
+                wdt_hal_write_protect_disable(&rtc_wdt_ctx);
+                wdt_hal_feed(&rtc_wdt_ctx);
+                wdt_hal_write_protect_enable(&rtc_wdt_ctx);
+            }
+            const tick_t tickDelta = _embeddedIOServiceCollection.TimerService->GetTick() - lastTick;
+            averageTick = (averageTick * 99 + (tickDelta)) / 100;
+            if(tickDelta < minTick)
+            {
+                minTick = tickDelta;
+            }
+            if(tickDelta > maxTick)
+            {
+                maxTick = tickDelta;
+            }
+            loopcnt++;
+            if(loopcnt % 1000 == 0)
+            {
+                ESP_LOGI("MainLoop", "Average loop time: %f ms, Min loop time: %f ms, Max loop time: %f ms", (float)averageTick / timerTicksPerSecond * 1000, (float)minTick / timerTicksPerSecond * 1000, (float)maxTick / timerTicksPerSecond * 1000);
+            }
+            lastTick = _embeddedIOServiceCollection.TimerService->GetTick();
+        }
+    }
+
+    void IRAM_ATTR wdthitter(void *parameters)
+    {
+        while (true)
+        {
+            vTaskDelay(1000);
+
+            if (wdt_hal_is_enabled(&rtc_wdt_ctx)) {
+                wdt_hal_write_protect_disable(&rtc_wdt_ctx);
+                wdt_hal_feed(&rtc_wdt_ctx);
+                wdt_hal_write_protect_enable(&rtc_wdt_ctx);
+            }
+        }
+    }
+
+    TaskHandle_t wdthitter_task_handle = NULL;
 
     void app_main()
     {
@@ -432,8 +504,12 @@ extern "C"
 
         httpd_register_uri_handler(server, &resetToOTAUpdaterPost);
 
-        mount_spiffs("/SPIFFS");
-        register_file_handler_http_server("/SPIFFS");
+        // xTaskCreate(wdthitter, "wdthitter", 4096, NULL, 1, &wdthitter_task_handle);
+        mount_mmrofs("/mm");
+        // mount_spiffs("/mm");
+        register_file_handler_http_server("/mm");
+        //end wdthitter task
+        // vTaskDelete(wdthitter_task_handle);
 
         spi_bus_config_t attinybuscfg = {
             .mosi_io_num = ATTINY_MOSI,
@@ -469,17 +545,8 @@ extern "C"
         attinyTransactionCB(&t);
 
         Setup();
-        while (1)
-        {
-            vTaskDelay(1);
 
-            Loop();
-
-            if (wdt_hal_is_enabled(&rtc_wdt_ctx)) {
-                wdt_hal_write_protect_disable(&rtc_wdt_ctx);
-                wdt_hal_feed(&rtc_wdt_ctx);
-                wdt_hal_write_protect_enable(&rtc_wdt_ctx);
-            }
-        }
+        //create task for loop with max priority
+        xTaskCreate(loop, "loop_task", 4096, NULL, configMAX_PRIORITIES - 1, NULL);
     }
 }

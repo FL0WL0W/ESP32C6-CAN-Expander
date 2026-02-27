@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Unlicense OR CC0-1.0
  */
-/* HTTP File Server Example, SD card / SPIFFS mount functions.
+/* HTTP File Server Example, SD card / FATFS mount functions.
 
    This example code is in the Public Domain (or CC0 licensed, at your option.)
 
@@ -25,6 +25,7 @@
 #include "sdmmc_cmd.h"
 #include "esp_partition.h"
 #include "mount.h"
+#include "MMROFS.h"
 
 static const char *TAG = "MOUNT";
 
@@ -127,3 +128,63 @@ esp_err_t mount_spiffs(const char* base_path)
     ESP_LOGI(TAG, "Partition size: total: %d, used: %d", total, used);
     return ESP_OK;
 }
+
+/* Function to initialize FATFS */
+esp_err_t mount_fatfs(const char* base_path)
+{
+    ESP_LOGI(TAG, "Initializing FATFS");
+    const char* partition_label = "storage";
+
+    esp_vfs_fat_mount_config_t mount_config = {
+        .format_if_mount_failed = true,
+        .max_files = 5,
+        .allocation_unit_size = 4096
+    };
+    
+    // First, try to find and erase the FATFS partition if something's wrong
+    const esp_partition_t *part = esp_partition_find_first(
+        ESP_PARTITION_TYPE_DATA, 
+        ESP_PARTITION_SUBTYPE_DATA_FAT, 
+        partition_label
+    );
+    
+    if (part != NULL) {
+        ESP_LOGI(TAG, "Partition '%s' - Address: 0x%x, Length: 0x%x (%u bytes)", 
+                    part->label, part->address, part->size, part->size);
+    }
+
+    wl_handle_t wl_handle = WL_INVALID_HANDLE;
+    esp_err_t ret = esp_vfs_fat_spiflash_mount_rw_wl(base_path, partition_label, &mount_config, &wl_handle);
+    if (ret != ESP_OK) {
+        if (ret == ESP_FAIL) {
+            ESP_LOGE(TAG, "Failed to mount or format FATFS filesystem");
+        } else if (ret == ESP_ERR_NOT_FOUND) {
+            ESP_LOGE(TAG, "Failed to find FATFS partition");
+        } else {
+            ESP_LOGE(TAG, "Failed to initialize FATFS (%s)", esp_err_to_name(ret));
+        }
+        return ret;
+    }
+
+    ESP_LOGI(TAG, "FATFS mounted successfully at %s", base_path);
+    return ESP_OK;
+}
+
+/* Function to initialize MMROFS */
+esp_err_t mount_mmrofs(const char* base_path)
+{
+    ESP_LOGI(TAG, "Initializing MMROFS");
+    const char* partition_label = "storage";
+
+    mmrofs_mount_cfg_t cfg = {
+        .base_path = base_path,
+        .partition_label = partition_label,
+        .max_files = 8,
+    };
+
+    ESP_ERROR_CHECK(mmrofs_register_vfs(&cfg));
+
+    ESP_LOGI(TAG, "MMROFS mounted successfully at %s", base_path);
+    return ESP_OK;
+}
+

@@ -9,6 +9,8 @@ extern "C" {
 
 esp_err_t mount_sd(const char *base_path);
 esp_err_t mount_spiffs(const char *base_path);
+esp_err_t mount_fatfs(const char* base_path);
+esp_err_t mount_mmrofs(const char* base_path);
 
 #ifdef __cplusplus
 }
