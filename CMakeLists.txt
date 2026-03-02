@@ -4,7 +4,8 @@
 # CMakeLists in this exact order for cmake to work correctly
 cmake_minimum_required(VERSION 3.16)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fdump-tree-gimple-lineno")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fdump-tree-gimple-lineno")
 
 # Create persistent stamp cache directory
 set(PERSISTENT_STAMP_DIR "${CMAKE_SOURCE_DIR}/.cmake/fc-stamp")

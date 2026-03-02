@@ -410,9 +410,9 @@ fi
 log_info "Waiting for device to restart..."
 sleep 3
 
-# Step 10: Reconnect to original WiFi if one was active
+# Step 10: Reconnect to original WiFi if one was active and it's different from target SSID
 if [[ $SKIP_WIFI -eq 0 ]]; then
-    if [[ -n "$ORIGINAL_SSID" ]]; then
+    if [[ -n "$ORIGINAL_SSID" && "$ORIGINAL_SSID" != "$WIFI_SSID" ]]; then
         log_info "Reconnecting to original WiFi: $ORIGINAL_SSID"
         wifi_connect "$ORIGINAL_SSID" "" "$WIFI_INTERFACE"
         
@@ -422,15 +422,8 @@ if [[ $SKIP_WIFI -eq 0 ]]; then
             log_success "Reconnected to original WiFi"
             sleep 2
         fi
-    else
-        log_info "No original WiFi connection to restore"
-    fi
-fi
-
-log_info ""
-log_success "===== OTA Update Complete ====="
-log_info "Firmware has been uploaded to partition '$OTA_PARTITION'"
-log_info "Boot partition has been set to '$OTA_PARTITION'"
+    elif [[ "$ORIGINAL_SSID" == "$WIFI_SSID" ]]; then
+        log_info "Already on original WiFi ($WIFI_SSID), no reconnection needed"g_info "Boot partition has been set to '$OTA_PARTITION'"
 log_info "Device has been restarted and will boot from the new partition"
 
 exit 0
