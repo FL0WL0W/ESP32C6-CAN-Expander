@@ -6,6 +6,7 @@
 #include <dirent.h>
 #include "http_server.h"
 #include "ATTiny_UPDI.h"
+#include "freertos/idf_additions.h"
 #include "freertos/ringbuf.h"
 
 #include "esp_log.h"
@@ -24,7 +25,7 @@
 #define MAX_FILE_SIZE_STR "200KB"
 
 /* Scratch buffer size */
-#define SCRATCH_BUFSIZE  8192
+#define SCRATCH_BUFSIZE  4096
 #define ATTINY_FLASH_SIZE 4096
 #define ATTINY_FLASH_SIZE_STR "4KB"
 #define W806_FLASH_SIZE 1073741824
@@ -355,6 +356,7 @@ static esp_err_t upload_post_handler(httpd_req_t *req)
         /* Keep track of remaining size of
          * the file left to be uploaded */
         remaining -= received;
+        vTaskDelay(1);//delay a bit to avoid watchdog triggering on large file uploads
     }
 
     /* Close file upon upload completion */

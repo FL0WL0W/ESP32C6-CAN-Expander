@@ -4,3 +4,4 @@ libs/*
 .devcontainer/*
 debug.log
 .cmake/*
+__pycache__/*

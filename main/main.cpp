@@ -384,6 +384,7 @@ extern "C"
     }
 
     TaskHandle_t wdthitter_task_handle = NULL;
+    spi_transaction_t t;
 
     void app_main()
     {
@@ -511,7 +512,7 @@ extern "C"
         //end wdthitter task
         // vTaskDelete(wdthitter_task_handle);
 
-        spi_bus_config_t attinybuscfg = {
+        const spi_bus_config_t attinybuscfg = {
             .mosi_io_num = ATTINY_MOSI,
             .miso_io_num = ATTINY_MISO,
             .sclk_io_num = ATTINY_CLK,
@@ -519,7 +520,7 @@ extern "C"
             .quadhd_io_num = -1,
             .max_transfer_sz = 1024
         };
-        spi_device_interface_config_t attinydevcfg = {
+        const spi_device_interface_config_t attinydevcfg = {
             .command_bits = 0,
             .address_bits = 0,
             .dummy_bits = 0,
@@ -536,7 +537,6 @@ extern "C"
         ret = spi_bus_add_device(SPI2_HOST, &attinydevcfg, &attinySPI);
         ESP_ERROR_CHECK(ret);
 
-        spi_transaction_t t;
         memset(&t, 0, sizeof(t));
         std::memset(outBuffer, 0, 20);
         t.rx_buffer = inBuffer;
