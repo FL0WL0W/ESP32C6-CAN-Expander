@@ -32,21 +32,21 @@ namespace EmbeddedIOServices
 				break;
             case 5:
 				_esp32DigitalService->InitPin(18, direction);
-				if(In5 == (direction == In))
+				if((In5 = (direction == In)))
 					_attinyPassthroughService->InitPassthrough(7, 12, false);
 				else
 					_attinyPassthroughService->InitPassthrough(12, 7, true);
 				break;
             case 6:
 				_esp32DigitalService->InitPin(19, direction);
-				if(In6 == (direction == In))
+				if((In6 = (direction == In)))
 					_attinyPassthroughService->InitPassthrough(5, 14, false);
 				else
 					_attinyPassthroughService->InitPassthrough(14, 5, true);
 				break;
             case 7:
 				_esp32DigitalService->InitPin(20, direction);
-				if(In7 == (direction == In))
+				if((In7 = (direction == In)))
 					_attinyPassthroughService->InitPassthrough(18, 15, false);
 				else
 					_attinyPassthroughService->InitPassthrough(15, 18, true);
@@ -74,7 +74,7 @@ namespace EmbeddedIOServices
 				break;
             case 16:
 				_esp32DigitalService->InitPin(21, direction);
-				if(In16 == (direction == In))
+				if((In16 = (direction == In)))
 					_attinyPassthroughService->InitPassthrough(17, 20., false);
 				else
 					_attinyPassthroughService->InitPassthrough(20, 17, true);
